@@ -1,67 +1,78 @@
-# BurnedValue 🚀
+# Burned Value 🚀
 
 ### **The Lovechild of EVMS and a Release Burndown**
-> *"Because you want to know how fast you’re running, but also if you can actually afford the shoes."*
 
-**BurnedValue** is a project tracking framework designed for the "real world"—where risk is high, volatility is constant, but the budget is finite. It bridges the gap between rigid government-style accounting and fluid agile delivery.
+**Burned Value** is project governance for the unpredictable. By combining fiscal discipline with agile flexibility, we ensure every dollar is an intentional investment in the right outcomes—navigating constant volatility while keeping delivery anchored to contractual intent and true value.  
+
+It uses the **Agile Release Burndown** as the **Quantifiable Backup Data (QBD)** to strictly drive EVMS calculations. It replaces "Manager Guesses" with "Working Software" (Points) as the only measure of Earned Value. 
 
 ---
 
-## 🧬 The Genealogy of BurnedValue
+## 🧬 The Genealogy
 
-Traditional metrics often suffer from a "broken home" dynamic. We brought the family back together to create a metric that actually tells the truth.
 
 ### 🛡️ The Over-Protective Parent: **EVMS** (Earned Value Management)
-**EVMS** is the parent who won't let you leave the house without a detailed itinerary and a receipts envelope. It treats project management as a 7th-grade math problem, providing a level of fiscal clarity that agile "management" can't touch.
-
-**The "Parental" Toolkit:**
-* **CPI (Cost Performance Index):** The "Allowance" check. Are we getting $1.00 of work for every $1.00 we spend?
-* **SPI (Schedule Performance Index):** The "Curfew" check. Are we moving as fast as we promised?
-* **BAC (Budget at Completion):** The "Total Piggy Bank." The hard limit on what this whole thing is allowed to cost.
-* **EAC & ETC:** The "Predictive Guilt Trip." Calculating exactly how much more money you'll need (ETC) and how much over-budget you'll eventually be (EAC) if you don't change your behavior *right now*.
-
-**The Strength:** Unmatched fiscal discipline. You always know exactly where the money went.  
-**The Flaw:** It assumes the "Plan" is perfect. If the plan changes, the math breaks.
+**EVMS** is the parent who won't let you leave the house without a detailed itinerary and a receipts envelope.
+*   **The Strength:** Unmatched fiscal discipline. You always know exactly where the money went (CPI/SPI/BAC).
+*   **The Flaw (The Liar's Percent):** It relies on a subjective "Percent Complete." If the PM *guesses* they are 50% done, EVMS cheerfully reports you are on budget—right up until you aren't.
 
 ### 🎨 The Free-Spirited Parent: **Release Burndown**
-The **Release Burndown** lives in the moment. It accepts that the roadmap is a living document and focuses entirely on the remaining "pile of work" (velocity).
-* **The Strength:** High transparency and adaptability to massive volatility.
-* **The Flaw:** Can accidentally burn through a million dollars without realizing the "value" produced doesn't actually cover the cost.
+The **Release Burndown** lives in the moment. It accepts that the roadmap is a living document.
+*   **The Strength:** High transparency and adaptability. Tracks *real* work (Points/Velocity).
+*   **The Flaw:** Can accidentally burn through a million dollars without realizing the "velocity" produced doesn't actually cover the cost.
 
-### 🧑‍💼 The Adult Child: **BurnedValue**
-**BurnedValue** is the responsible offspring. It inherited the fiscal integrity of EVMS and the agility of the Burndown. 
-* **The Result:** A metric that tracks the **velocity of realized ROI.** It doesn't just tell you that you're "done" with a task; it tells you how much of your business case you've actually "unlocked" relative to your spend.
+### 🧑‍💼 The Adult Child: **Burned Value**
+**Burned Value** is the responsible offspring. It inherited the fiscal integrity of EVMS and the honesty of the Burndown.
 
----
+In other words, 
 
-## ✨ Key Benefits
+$$ \text{Percent Complete} = \frac{\text{Completed Points}}{\text{Total Scope Points}} $$
 
-| Feature | The "Adult Child" Logic |
-| :--- | :--- |
-| **Volatility Buffer** | Unlike rigid EVMS, **BurnedValue** handles scope pivots by re-calculating the *value density* of the remaining backlog. |
-| **Burn-to-Budget** | Unlike a standard Burndown, we map velocity to burn rate ($/point) so you know when you'll run out of shoes. |
-| **Risk-Adjusted Delivery** | Prioritizes "burning" high-risk items first, increasing the *Earned Value* earlier in the project lifecycle. |
+$$ \text{Earned Value (EV)} = \text{Percent Complete} \times \text{Budget at Completion (BAC)} $$
+
+If you spend 50% of your budget but have only finished 10% of your Story Points, **Burned Value** shows a **CPI of 0.2**. No hiding.
 
 ---
 
-## 🛠 How it Works
+## � Value Density
 
-1.  **Define Value:** Assign a "Business Value" weight to your items (The EVMS DNA).
-2.  **Track the Burn:** Measure points completed per sprint (The Burndown DNA).
-3.  **Calculate BurnedValue:** $$BV = \frac{\% \text{ Value Realized}}{\% \text{ Budget Spent}}$$
+**Value Density** is the "Exchange Rate" between estimated Effort (Points) and your Budget.
 
-*A $BV \geq 1.0$ means you are unlocking value faster than you are spending money.*
+$$ \text{Value Density} = \frac{\text{Total Budget (BAC)}}{\text{Total Estimated Effort (Points)}} $$
+
+It answers the question: **"How much Earned Value do I unlock for every Story Point I complete?"**
+
+### The "Volatility" Effect
+Without a real-time link between budget and scope, the cost of additional work remains hidden until the point of financial exhaustion. In **Burned Value**, scope creep immediately dilutes your Value Density.
+
+**Example:**
+*   You have **$100,000** and **100 Points**.
+*   **Value Density = $1,000 / point.** (Every point you finish earns you $1,000 in value).
+
+**Scenario: Scope Creep**
+*   You add **50 Points** of new features (Total 150), but the Budget stays **$100,000**.
+*   **New Value Density = $666 / point.**
+
+**The Consequence: Dilution of Value**  
+When scope increases without a budget adjustment, your work is instantly "worth less." To earn the same $1,000 of Value, you must now deliver 1.5 points of effort. Your CPI (Cost Performance Index) craters because you are burning resources to unlock "diluted" value.
+
+Value Density replaces optimistic "hope" with fiscal reality. Unless velocity scales perfectly with scope, you have created a mathematical gap that cannot be closed through effort alone.
+
+### The Scope-Value Trade-off
+Unfunded scope is a mathematical dilution of value; maintaining project integrity requires a deliberate choice between budget, timeline, or trade-offs.
+
+* **Fund the Scope:** Increase the budget to maintain **Value Density** and keep the project on track.
+* **Reject the Change:** Maintain the current budget and schedule by keeping the scope locked to the original agreement.
+* **Accept the Variance:** Acknowledge that the project will now result in a budget overrun and a slipped schedule as a mathematical certainty.
+* **Increase Velocity:** Bet on a sudden, sustained increase in team output.   
+*Velocity is a trailing indicator of team health, not a dial that can be turned on command. This is almost never a viable recovery strategy.*
 
 ---
 
-## 🚀 Getting Started
+## ✨ Key Features
 
-```bash
-# Clone the repo (In your /repos folder, NOT Google Drive!)
-git clone [https://github.com/yourusername/burnedvalue.git](https://github.com/yourusername/burnedvalue.git)
-
-# Install dependencies
-npm install
-
-# Run the tracker
-npm start
+*   **Financials:** The full EVMS suite (CPI, SPI, EAC) driven by real velocity.
+*   **Volatility Buffer:** Handles scope pivots by re-calculating the value density of the remaining backlog.
+*   **QBD "Bridge:** A dual-axis chart correlating Burndown with Earned Value. 
+*   **Input:** Supports manual entry or hooks for JSON/CSV imports.
+*   **Scope Volatility:** Handles adding/removing points from the backlog without breaking the financial model (re-baselining).

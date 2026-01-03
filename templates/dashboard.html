@@ -1,0 +1,132 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="header-row">
+    <div>
+        <h2>{{ project.name }}</h2>
+        <span class="subtitle">Budget: ${{ project.bac }} | Scope: {{ metrics.total_scope }} pts</span>
+    </div>
+    <a href="{{ url_for('add_period', project_id=project.id) }}" class="btn primary">update burn 🔥</a>
+</div>
+
+<div class="kpi-grid">
+    <div class="card kpi {{ 'danger' if metrics.cpi < 1 else 'success' }}">
+        <label>CPI (Cost Efficiency)</label>
+        <div class="value">{{ metrics.cpi }}</div>
+        <div class="sub">Target: 1.0</div>
+    </div>
+
+    <div class="card kpi {{ 'danger' if metrics.spi < 1 else 'success' }}">
+        <label>SPI (Schedule)</label>
+        <div class="value">{{ metrics.spi }}</div>
+        <div class="sub">Target: 1.0</div>
+    </div>
+
+    <div class="card kpi">
+        <label>Value Density</label>
+        <div class="value">${{ metrics.value_density }}<span>/pt</span></div>
+        <div class="sub">Exchange Rate</div>
+    </div>
+
+    <div class="card kpi">
+        <label>Earned Value</label>
+        <div class="value">${{ metrics.ev }}</div>
+        <div class="sub">{{ metrics.percent_complete }}% Complete</div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <div class="card chart-container">
+        <h3>💰 EVMS Financials</h3>
+        <canvas id="evmsChart"></canvas>
+    </div>
+
+    <div class="card chart-container">
+        <h3>🌉 The QBD Bridge</h3>
+        <canvas id="bridgeChart"></canvas>
+    </div>
+</div>
+
+<script>
+    const projectId = "{{ project.id }}";
+
+    // Fetch Data from API to populate charts
+    fetch(`/api/project/${projectId}`)
+        .then(response => response.json())
+        .then(data => {
+            const periods = data.periods.sort((a, b) => new Date(a.date) - new Date(b.date));
+            const labels = periods.map(p => p.date);
+
+            // Calculate Accumulations for EVMS
+            let cumAC = 0;
+            let cumEV = 0;
+            let cumPV = 0; // Simplified
+
+            const acData = [];
+            const evData = [];
+            const pointsData = [];
+
+            // Re-calculate simplistic cumulative to draw lines
+            const totalScope = periods.length > 0 ? periods[periods.length - 1].total_estimated_effort : 1;
+            const bac = data.bac;
+
+            let burnedPoints = 0;
+
+            periods.forEach(p => {
+                burnedPoints += p.points_completed;
+                cumAC += p.actual_cost;
+
+                // EV Calculation logic
+                const percentComplete = burnedPoints / p.total_estimated_effort;
+                const ev = percentComplete * bac;
+
+                acData.push(cumAC);
+                evData.push(ev);
+                pointsData.push(burnedPoints);
+            });
+
+            // --- Chart 1: EVMS ---
+            new Chart(document.getElementById('evmsChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Earned Value (EV)', data: evData, borderColor: '#4caf50', tension: 0.3 },
+                        { label: 'Actual Cost (AC)', data: acData, borderColor: '#f44336', tension: 0.3 },
+                    ]
+                },
+                options: { responsive: true, interaction: { mode: 'index', intersect: false } }
+            });
+
+            // --- Chart 2: The Bridge (Points vs EV) ---
+            new Chart(document.getElementById('bridgeChart'), {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Points Burned',
+                            data: pointsData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            yAxisID: 'y'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Earned Value ($)',
+                            data: evData,
+                            borderColor: '#4caf50',
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Points' } },
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Dollars ($)' }, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        });
+</script>
+{% endblock %}

@@ -1,0 +1,18 @@
+{
+    "9bd0cc62-d7b1-4cda-b2b0-762c78a5d46c": {
+        "id": "9bd0cc62-d7b1-4cda-b2b0-762c78a5d46c",
+        "name": "cats",
+        "bac": 10000.0,
+        "start_date": "2026-01-01",
+        "end_date": "2026-12-01",
+        "periods": []
+    },
+    "0a7e505f-128a-47f0-8017-ccb8fdaa47e4": {
+        "id": "0a7e505f-128a-47f0-8017-ccb8fdaa47e4",
+        "name": "dog",
+        "bac": 100.0,
+        "start_date": "2022-01-01",
+        "end_date": "2026-01-30",
+        "periods": []
+    }
+}

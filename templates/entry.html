@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="card form-card">
+    <h2>📝 Update Period Data</h2>
+    <form action="{{ url_for('add_period', project_id=project.id) }}" method="POST">
+        <div class="form-group">
+            <label>Period Ending Date</label>
+            <input type="date" name="date" required>
+        </div>
+
+        <h3>🔥 Velocity</h3>
+        <div class="form-group">
+            <label>Points Completed</label>
+            <input type="number" name="points" step="0.5" required placeholder="Velocity for this period only">
+        </div>
+
+        <h3>💰 Actual Cost Calculation</h3>
+        <div class="row">
+            <div class="form-group">
+                <label>Labor Hours</label>
+                <input type="number" id="hours" name="labor_hours" step="0.5" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label>Avg Labor Rate ($/hr)</label>
+                <input type="number" id="rate" name="labor_rate" step="0.01" placeholder="0">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Non-Labor / ODC ($)</label>
+            <input type="number" id="odc" name="non_labor" step="0.01" placeholder="Materials, Licenses, etc.">
+        </div>
+
+        <div class="form-group highlight">
+            <label>Total Period Cost Estimate:</label>
+            <div id="total_cost_display" class="big-number">$0.00</div>
+        </div>
+
+        <h3>📉 Scope Governance</h3>
+        <div class="form-group warning-border">
+            <label>Total Estimated Effort (Points)</label>
+            <input type="number" name="total_scope" step="0.5"
+                value="{{ project.periods[-1].total_estimated_effort if project.periods else '0' }}">
+            <small>Creating Scope Creep here will dilute your Value Density!</small>
+        </div>
+
+        <button type="submit" class="btn primary">Commit to Ledger</button>
+    </form>
+</div>
+
+<script>
+    const hoursInput = document.getElementById('hours');
+    const rateInput = document.getElementById('rate');
+    const odcInput = document.getElementById('odc');
+    const display = document.getElementById('total_cost_display');
+
+    function calculate() {
+        const h = parseFloat(hoursInput.value) || 0;
+        const r = parseFloat(rateInput.value) || 0;
+        const o = parseFloat(odcInput.value) || 0;
+        const total = (h * r) + o;
+        display.innerText = "$" + total.toFixed(2);
+    }
+
+    hoursInput.addEventListener('input', calculate);
+    rateInput.addEventListener('input', calculate);
+    odcInput.addEventListener('input', calculate);
+</script>
+{% endblock %}

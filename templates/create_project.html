@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="card form-card">
+    <h2>🚀 Start New Project</h2>
+    <form action="{{ url_for('create_project') }}" method="POST">
+        <div class="form-group">
+            <label>Project Name</label>
+            <input type="text" name="name" required placeholder="e.g. Phoenix Protocol">
+        </div>
+
+        <div class="form-group">
+            <label>Budget at Completion (BAC) $</label>
+            <input type="number" name="bac" required step="0.01" placeholder="100000">
+        </div>
+
+        <div class="row">
+            <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" name="start_date" required>
+            </div>
+            <div class="form-group">
+                <label>End Date</label>
+                <input type="date" name="end_date" required>
+            </div>
+        </div>
+
+        <button type="submit" class="btn primary">Initialize Governance</button>
+    </form>
+</div>
+{% endblock %}
