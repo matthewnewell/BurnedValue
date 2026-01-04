@@ -1,0 +1,47 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="header-row">
+    <div>
+        <h1>Your Projects</h1>
+        <div class="subtitle">Select a project to view its performance</div>
+    </div>
+    <a href="{{ url_for('create_project') }}" class="btn primary">+ New Project</a>
+</div>
+
+<div class="kpi-grid">
+    {% for project in projects %}
+    <a href="{{ url_for('dashboard', project_id=project.id) }}" style="text-decoration: none;">
+        <div class="card hover-effect" style="height: 100%; transition: transform 0.2s; cursor: pointer;">
+            <div class="kpi">
+                <label>PROJECT</label>
+                <div class="value" style="font-size: 1.4rem; margin-bottom: 10px;">{{ project.name }}</div>
+                <div class="sub">
+                    ID: {{ project.id[:8] }}...<br>
+                    Budget: ${{ "{:,.0f}".format(project.bac) }}
+                    {% if project.description %}
+                    <div
+                        style="margin-top: 10px; font-style: italic; color: var(--text-secondary); font-size: 0.9em; line-height: 1.4;">
+                        {{ project.description }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </a>
+    {% else %}
+    <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
+        <h3>No projects found</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 20px;">Get started by creating your first project.</p>
+        <a href="{{ url_for('create_project') }}" class="btn primary">Create Project</a>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+    .hover-effect:hover {
+        transform: translateY(-5px);
+        border-color: var(--accent);
+    }
+</style>
+{% endblock %}

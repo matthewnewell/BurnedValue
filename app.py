@@ -8,14 +8,10 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    # For now, just load the first project or redirect to creation
-    projects = utils.load_projects()
-    if not projects:
-        return redirect(url_for('create_project'))
-    
-    # Default to first available project
-    project_id = list(projects.keys())[0]
-    return redirect(url_for('dashboard', project_id=project_id))
+    projects_dict = utils.load_projects()
+    # Convert dict values to a list for the template
+    projects_list = list(projects_dict.values())
+    return render_template('index.html', projects=projects_list)
 
 @app.route('/create', methods=['GET', 'POST'])
 def create_project():
@@ -24,6 +20,7 @@ def create_project():
         data = {
             "id": project_id,
             "name": request.form['name'],
+            "description": request.form.get('description', ''),
             "bac": float(request.form['bac']),
             "start_date": request.form['start_date'],
             "end_date": request.form['end_date'],
