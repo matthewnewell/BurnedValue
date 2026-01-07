@@ -5,7 +5,8 @@
         "bac": 10000.0,
         "start_date": "2026-01-01",
         "end_date": "2026-12-01",
-        "periods": []
+        "periods": [],
+        "description": ""
     },
     "0a7e505f-128a-47f0-8017-ccb8fdaa47e4": {
         "id": "0a7e505f-128a-47f0-8017-ccb8fdaa47e4",
@@ -13,7 +14,8 @@
         "bac": 100.0,
         "start_date": "2022-01-01",
         "end_date": "2026-01-30",
-        "periods": []
+        "periods": [],
+        "description": ""
     },
     "71867235-e0b7-4c8f-b4cb-25fc03d381e2": {
         "id": "71867235-e0b7-4c8f-b4cb-25fc03d381e2",
@@ -21,6 +23,16 @@
         "bac": 333.0,
         "start_date": "33333-03-31",
         "end_date": "4444-04-04",
+        "periods": [],
+        "description": ""
+    },
+    "a8d4590a-798f-4406-976a-675bb82835a5": {
+        "id": "a8d4590a-798f-4406-976a-675bb82835a5",
+        "name": "dog walker club",
+        "description": "we walk dogs",
+        "bac": 10000.0,
+        "start_date": "2016-01-01",
+        "end_date": "2026-05-30",
         "periods": []
     }
 }

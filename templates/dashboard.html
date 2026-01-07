@@ -5,6 +5,9 @@
     <div>
         <h2>{{ project.name }}</h2>
         <span class="subtitle">Budget: ${{ project.bac }} | Scope: {{ metrics.total_scope }} pts</span>
+        {% if project.description %}
+        <p class="description">{{ project.description }}</p>
+        {% endif %}
     </div>
     <a href="{{ url_for('add_period', project_id=project.id) }}" class="btn primary">update burn 🔥</a>
 </div>

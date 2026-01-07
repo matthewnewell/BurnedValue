@@ -75,8 +75,9 @@ class CalculationEngine:
         }
 
 class Project:
-    def __init__(self, name, bac, start_date, end_date):
+    def __init__(self, name, description, bac, start_date, end_date):
         self.name = name
+        self.description = description
         self.bac = float(bac)
         self.start_date = start_date
         self.end_date = end_date

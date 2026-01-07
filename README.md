@@ -1,6 +1,6 @@
 # Burned Value 🚀
 
-### **The Lovechild of Earned Value Management and Agile Release Burndown**
+### **Earned Value Management + Agile Release Burndown Lovechild**
 
 **Burned Value** is an experiment in project governance for unpredictable projects. By combining EVMS's fiscal discipline with Burndown's agility, we ensure every dollar is an intentional investment in the right outcomes—navigating constant volatility while keeping delivery anchored to contractual intent and true value.  
 
