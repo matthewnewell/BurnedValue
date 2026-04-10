@@ -3,45 +3,67 @@
 {% block content %}
 <div class="header-row">
     <div>
-        <h1>Your Projects</h1>
-        <div class="subtitle">Select a project to view its performance</div>
+        <h1>Projects</h1>
+        <div class="subtitle">Select a project to view its Burned Value dashboard</div>
     </div>
     <a href="{{ url_for('create_project') }}" class="btn primary">+ New Project</a>
 </div>
 
-<div class="kpi-grid">
+<div class="project-grid">
     {% for project in projects %}
-    <a href="{{ url_for('dashboard', project_id=project.id) }}" style="text-decoration: none;">
-        <div class="card hover-effect" style="height: 100%; transition: transform 0.2s; cursor: pointer;">
-            <div class="kpi">
-                <label>PROJECT</label>
-                <div class="value" style="font-size: 1.4rem; margin-bottom: 10px;">{{ project.name }}</div>
-                <div class="sub">
-                    ID: {{ project.id[:8] }}...<br>
-                    Budget: ${{ "{:,.0f}".format(project.bac) }}
-                    {% if project.description %}
-                    <div
-                        style="margin-top: 10px; font-style: italic; color: var(--text-secondary); font-size: 0.9em; line-height: 1.4;">
-                        {{ project.description }}
-                    </div>
-                    {% endif %}
-                </div>
+    <div class="project-card card {{ 'demo-card' if project.is_demo }}">
+
+        <div class="project-card-header">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span class="project-name">{{ project.name }}</span>
+                {% if project.is_demo %}
+                <span class="badge badge-demo">DEMO</span>
+                {% endif %}
             </div>
+            {% if project.metrics.cpi > 0 %}
+                <span class="badge {{ 'badge-success' if project.metrics.cpi >= 1.0 else ('badge-warning' if project.metrics.cpi >= 0.9 else 'badge-danger') }}">
+                    CPI {{ project.metrics.cpi }}
+                </span>
+            {% else %}
+                <span class="badge badge-neutral">No Data</span>
+            {% endif %}
         </div>
-    </a>
+
+        {% if project.description %}
+        <p class="project-description">{{ project.description }}</p>
+        {% endif %}
+
+        <div class="project-meta">
+            <span>Budget: <strong>${{ "{:,.0f}".format(project.bac) }}</strong></span>
+            <span>{{ project.start_date }} → {{ project.end_date }}</span>
+            {% if project.metrics.percent_complete > 0 %}
+            <span>{{ project.metrics.percent_complete }}% complete</span>
+            {% endif %}
+        </div>
+
+        {% if project.metrics.cpi > 0 %}
+        <div class="progress-bar-wrap">
+            <div class="progress-bar-fill {{ 'fill-danger' if project.metrics.cpi < 0.9 else ('fill-warning' if project.metrics.cpi < 1.0 else 'fill-success') }}"
+                 style="width: {{ [project.metrics.percent_complete, 100] | min }}%"></div>
+        </div>
+        {% endif %}
+
+        <div class="project-card-actions">
+            <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn primary">View Dashboard</a>
+            {% if not project.is_demo %}
+            <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}"
+                  onsubmit="return confirm('Delete {{ project.name }}? This cannot be undone.')">
+                <button type="submit" class="btn btn-ghost-danger">Delete</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
     {% else %}
-    <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
-        <h3>No projects found</h3>
-        <p style="color: var(--text-secondary); margin-bottom: 20px;">Get started by creating your first project.</p>
+    <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 60px;">
+        <h3>No projects yet</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 20px;">Create your first project to start tracking Earned Value.</p>
         <a href="{{ url_for('create_project') }}" class="btn primary">Create Project</a>
     </div>
     {% endfor %}
 </div>
-
-<style>
-    .hover-effect:hover {
-        transform: translateY(-5px);
-        border-color: var(--accent);
-    }
-</style>
 {% endblock %}

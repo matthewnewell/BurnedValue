@@ -1,17 +1,59 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+import os
+from flask import Flask, render_template, request, redirect, url_for, jsonify, abort, session
 from models import CalculationEngine, Period
 import utils
 import uuid
 from datetime import datetime
 
 app = Flask(__name__)
+# Set SECRET_KEY env var in production. The default is fine for local dev.
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
+
+
+# ── Session-aware helpers for demo project ─────────────────────────────────────
+
+def get_project_for_request(project_id):
+    """
+    For real projects: load from file.
+    For the demo: start from the canonical seed, then overlay any edits
+    the current visitor has made (stored in their session cookie).
+    """
+    if project_id == 'demo':
+        project = utils.get_canonical_demo()
+        if 'demo_periods' in session:
+            project['periods'] = session['demo_periods']
+        return project
+    return utils.get_project(project_id)
+
+
+def save_project_for_request(project_id, project):
+    """
+    For real projects: write to file.
+    For the demo: store only the periods list in the session cookie.
+    The base project structure is always rebuilt from the canonical seed.
+    """
+    if project_id == 'demo':
+        session['demo_periods'] = project['periods']
+        session.modified = True
+    else:
+        utils.save_project_data(project_id, project)
+
+
+# ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
+    utils.ensure_demo_project()
     projects_dict = utils.load_projects()
-    # Convert dict values to a list for the template
-    projects_list = list(projects_dict.values())
+    projects_list = []
+    for p in projects_dict.values():
+        # For the demo shown on the index, always use the canonical version
+        # (visitor's session edits only affect the dashboard view)
+        metrics = CalculationEngine.compute_metrics(p, p.get('periods', []))
+        projects_list.append({**p, 'metrics': metrics})
+    projects_list.sort(key=lambda p: (0 if p.get('is_demo') else 1, p.get('name', '')))
     return render_template('index.html', projects=projects_list)
+
 
 @app.route('/create', methods=['GET', 'POST'])
 def create_project():
@@ -30,58 +72,123 @@ def create_project():
         return redirect(url_for('dashboard', project_id=project_id))
     return render_template('create_project.html')
 
+
 @app.route('/dashboard/<project_id>')
 def dashboard(project_id):
-    project = utils.get_project(project_id)
+    project = get_project_for_request(project_id)
     if not project:
         return "Project not found", 404
-    
-    metrics = CalculationEngine.compute_metrics(project, project['periods'])
-    return render_template('dashboard.html', project=project, metrics=metrics)
+
+    periods = project.get('periods', [])
+    metrics = CalculationEngine.compute_metrics(project, periods)
+    narrative = CalculationEngine.generate_narrative(project, periods, metrics)
+    period_details = CalculationEngine.compute_period_details(project, periods)
+
+    return render_template(
+        'dashboard.html',
+        project=project,
+        metrics=metrics,
+        narrative=narrative,
+        period_details=period_details
+    )
+
 
 @app.route('/project/<project_id>/add_period', methods=['GET', 'POST'])
 def add_period(project_id):
-    project = utils.get_project(project_id)
-    if request.method == 'POST':
-        # Default previous total scope if not provided (to avoid manual re-entry every time)
-        last_scope = 0
-        if project['periods']:
-             last_scope = project['periods'][-1]['total_estimated_effort']
+    project = get_project_for_request(project_id)
+    if not project:
+        abort(404)
 
+    if request.method == 'POST':
+        last_scope = project['periods'][-1]['total_estimated_effort'] if project['periods'] else 0
         scope_input = request.form.get('total_scope')
         total_scope = float(scope_input) if scope_input else last_scope
 
-        # Handle Cost Input Options
-        # If user provides explicit Total AC, we use that. 
-        # Otherwise we calculate from Labor + ODC.
-        labor_hours = float(request.form.get('labor_hours', 0))
-        labor_rate = float(request.form.get('labor_rate', 0))
-        non_labor = float(request.form.get('non_labor', 0))
-        
-        # Create Period Object
         period = Period(
+            date=request.form['date'],
+            points_completed=float(request.form['points']),
+            labor_hours=float(request.form.get('labor_hours', 0)),
+            labor_rate=float(request.form.get('labor_rate', 0)),
+            non_labor_cost=float(request.form.get('non_labor', 0)),
+            total_scope=total_scope
+        )
+        project['periods'].append(period.to_dict())
+        save_project_for_request(project_id, project)
+        return redirect(url_for('dashboard', project_id=project_id))
+
+    return render_template('entry.html', project=project)
+
+
+@app.route('/project/<project_id>/edit_period/<period_id>', methods=['GET', 'POST'])
+def edit_period(project_id, period_id):
+    project = get_project_for_request(project_id)
+    if not project:
+        abort(404)
+
+    # Find the period by its ID
+    period_data = next((p for p in project['periods'] if p.get('period_id') == period_id), None)
+    if not period_data:
+        abort(404)
+
+    if request.method == 'POST':
+        labor_hours = float(request.form.get('labor_hours', 0))
+        labor_rate  = float(request.form.get('labor_rate', 0))
+        non_labor   = float(request.form.get('non_labor', 0))
+        scope_input = request.form.get('total_scope')
+
+        # Preserve period_id through the edit
+        updated = Period(
             date=request.form['date'],
             points_completed=float(request.form['points']),
             labor_hours=labor_hours,
             labor_rate=labor_rate,
             non_labor_cost=non_labor,
-            total_scope=total_scope
+            total_scope=float(scope_input) if scope_input else period_data['total_estimated_effort'],
+            period_id=period_id
         )
-        
-        project['periods'].append(period.to_dict())
-        utils.save_project_data(project_id, project)
+        # Replace in-place so list order is preserved
+        idx = next(i for i, p in enumerate(project['periods']) if p.get('period_id') == period_id)
+        project['periods'][idx] = updated.to_dict()
+        save_project_for_request(project_id, project)
         return redirect(url_for('dashboard', project_id=project_id))
-        
-    return render_template('entry.html', project=project)
+
+    return render_template('edit_period.html', project=project, period=period_data)
+
+
+@app.route('/project/<project_id>/delete_period/<period_id>', methods=['POST'])
+def delete_period(project_id, period_id):
+    project = get_project_for_request(project_id)
+    if not project:
+        abort(404)
+    project['periods'] = [p for p in project['periods'] if p.get('period_id') != period_id]
+    save_project_for_request(project_id, project)
+    return redirect(url_for('dashboard', project_id=project_id))
+
+
+@app.route('/demo/reset', methods=['POST'])
+def reset_demo():
+    """Clear this visitor's session edits, restoring the demo to its initial state."""
+    session.pop('demo_periods', None)
+    session.modified = True
+    return redirect(url_for('dashboard', project_id='demo'))
+
+
+@app.route('/project/<project_id>/delete', methods=['POST'])
+def delete_project(project_id):
+    project = utils.get_project(project_id)
+    if not project:
+        abort(404)
+    if project.get('is_demo'):
+        abort(403)
+    utils.delete_project(project_id)
+    return redirect(url_for('index'))
+
 
 @app.route('/api/project/<project_id>')
 def project_api(project_id):
-    """API endpoint for chart data"""
-    project = utils.get_project(project_id)
-    # Recalculate metrics for every point in time to draw the curves?
-    # For MVP, we pass the raw periods and let Client-side JS or specific helper do the time-series calc.
-    # We'll just return the full project JSON.
+    project = get_project_for_request(project_id)
     return jsonify(project)
+
 
 if __name__ == '__main__':
     app.run(debug=True)

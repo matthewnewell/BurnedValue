@@ -3,130 +3,490 @@
 {% block content %}
 <div class="header-row">
     <div>
-        <h2>{{ project.name }}</h2>
-        <span class="subtitle">Budget: ${{ project.bac }} | Scope: {{ metrics.total_scope }} pts</span>
+        <h2>
+            {{ project.name }}
+            {% if project.is_demo %}<span class="badge badge-demo" style="vertical-align: middle; font-size: 0.6em;">DEMO</span>{% endif %}
+        </h2>
+        <span class="subtitle">
+            Budget: ${{ "{:,.0f}".format(project.bac) }}
+            &nbsp;|&nbsp; Scope: {{ metrics.total_scope }} pts
+            &nbsp;|&nbsp; {{ project.start_date }} → {{ project.end_date }}
+        </span>
         {% if project.description %}
         <p class="description">{{ project.description }}</p>
         {% endif %}
     </div>
-    <a href="{{ url_for('add_period', project_id=project.id) }}" class="btn primary">update burn 🔥</a>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        {% if project.is_demo %}
+        <form method="POST" action="{{ url_for('reset_demo') }}">
+            <button type="submit" class="btn btn-ghost-neutral" title="Restore demo to its original state">↺ Reset Demo</button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('add_period', project_id=project.id) }}" class="btn primary">+ Update Burn</a>
+    </div>
 </div>
 
+{# ── Narrative bar ── #}
+{% if narrative %}
+<div class="narrative-bar narrative-{{ narrative.status }}">
+    <div class="narrative-icon">
+        {% if narrative.status == 'success' %}✅{% elif narrative.status == 'warning' %}⚡{% else %}🚨{% endif %}
+    </div>
+    <div class="narrative-body">
+        <strong>{{ narrative.headline }}</strong>
+        {% if narrative.lines %}
+        <ul class="narrative-lines">
+            {% for line in narrative.lines %}<li>{{ line }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="narrative-bar narrative-neutral">
+    <div class="narrative-icon">📋</div>
+    <div class="narrative-body">
+        <strong>No period data yet.</strong>
+        Add your first sprint or reporting period to start tracking Earned Value.
+    </div>
+</div>
+{% endif %}
+
+{# ── KPI Cards ── #}
 <div class="kpi-grid">
-    <div class="card kpi {{ 'danger' if metrics.cpi < 1 else 'success' }}">
-        <label>CPI (Cost Efficiency)</label>
-        <div class="value">{{ metrics.cpi }}</div>
-        <div class="sub">Target: 1.0</div>
+
+    <div class="card kpi {{ 'danger' if metrics.cpi > 0 and metrics.cpi < 1 else ('success' if metrics.cpi >= 1 else '') }}">
+        <label>
+            CPI
+            <span class="tooltip-wrapper">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-text">
+                    <strong>Cost Performance Index</strong><br>
+                    How much Earned Value you get per dollar spent.<br><br>
+                    CPI = EV ÷ AC<br><br>
+                    &gt; 1.0 = Under budget ✅<br>
+                    = 1.0 = On budget<br>
+                    &lt; 1.0 = Over budget 🚨
+                </span>
+            </span>
+        </label>
+        <div class="value">{{ metrics.cpi if metrics.cpi > 0 else '—' }}</div>
+        <div class="sub">Target: ≥ 1.0</div>
     </div>
 
-    <div class="card kpi {{ 'danger' if metrics.spi < 1 else 'success' }}">
-        <label>SPI (Schedule)</label>
-        <div class="value">{{ metrics.spi }}</div>
-        <div class="sub">Target: 1.0</div>
+    <div class="card kpi {{ 'danger' if metrics.spi > 0 and metrics.spi < 1 else ('success' if metrics.spi >= 1 else '') }}">
+        <label>
+            SPI
+            <span class="tooltip-wrapper">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-text">
+                    <strong>Schedule Performance Index</strong><br>
+                    How fast you're delivering value relative to plan.<br><br>
+                    SPI = EV ÷ PV<br><br>
+                    &gt; 1.0 = Ahead of schedule ✅<br>
+                    &lt; 1.0 = Behind schedule ⚠️
+                </span>
+            </span>
+        </label>
+        <div class="value">{{ metrics.spi if metrics.spi > 0 else '—' }}</div>
+        <div class="sub">Target: ≥ 1.0</div>
     </div>
 
     <div class="card kpi">
-        <label>Value Density</label>
-        <div class="value">${{ metrics.value_density }}<span>/pt</span></div>
-        <div class="sub">Exchange Rate</div>
+        <label>
+            Value Density
+            <span class="tooltip-wrapper">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-text">
+                    <strong>The Exchange Rate</strong><br>
+                    The dollar value of each story point.<br><br>
+                    Value Density = BAC ÷ Total Scope<br><br>
+                    When scope is added without increasing the budget, this rate drops. Every point you've already completed is now "worth less." This is the mathematical cost of unfunded scope creep.
+                </span>
+            </span>
+        </label>
+        <div class="value">${{ "{:,.2f}".format(metrics.value_density) }}<span style="font-size:1rem; font-weight:400">/pt</span></div>
+        <div class="sub">BAC ÷ Total Scope</div>
     </div>
 
     <div class="card kpi">
-        <label>Earned Value</label>
-        <div class="value">${{ metrics.ev }}</div>
-        <div class="sub">{{ metrics.percent_complete }}% Complete</div>
+        <label>
+            Earned Value
+            <span class="tooltip-wrapper">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-text">
+                    <strong>Earned Value (EV)</strong><br>
+                    The budgeted cost of work actually performed. This is "the truth" — the objective measure of progress in dollars.<br><br>
+                    EV = % Complete × BAC
+                </span>
+            </span>
+        </label>
+        <div class="value">${{ "{:,.0f}".format(metrics.ev) }}</div>
+        <div class="sub">{{ metrics.percent_complete }}% complete</div>
     </div>
+
+    <div class="card kpi {{ 'danger' if metrics.eac > metrics.bac else 'success' }}">
+        <label>
+            EAC
+            <span class="tooltip-wrapper">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-text">
+                    <strong>Estimate at Completion</strong><br>
+                    The projected total cost if the current CPI holds for the remainder of the project.<br><br>
+                    EAC = BAC ÷ CPI<br><br>
+                    If EAC &gt; BAC, the project will overrun its budget at the current burn rate.
+                </span>
+            </span>
+        </label>
+        <div class="value">${{ "{:,.0f}".format(metrics.eac) if metrics.eac > 0 else '—' }}</div>
+        <div class="sub">
+            {% if metrics.eac > metrics.bac %}
+            +${{ "{:,.0f}".format(metrics.eac - metrics.bac) }} over budget
+            {% elif metrics.eac > 0 %}
+            ${{ "{:,.0f}".format(metrics.bac - metrics.eac) }} under budget
+            {% endif %}
+        </div>
+    </div>
+
 </div>
 
+{# ── Charts ── #}
 <div class="charts-grid">
     <div class="card chart-container">
-        <h3>💰 EVMS Financials</h3>
+        <h3>💰 EVMS — Cost &amp; Schedule Performance</h3>
+        <p class="chart-caption">EV above AC = under budget. EV below AC = over budget. PV is the plan. The gap widens when scope creep hits.</p>
         <canvas id="evmsChart"></canvas>
     </div>
 
     <div class="card chart-container">
-        <h3>🌉 The QBD Bridge</h3>
-        <canvas id="bridgeChart"></canvas>
+        <h3>🔥 Release Burndown</h3>
+        <p class="chart-caption">Red line = remaining scope. Upward jumps are scope creep events. Bars show per-period velocity. Ideal line assumes constant pace from day one.</p>
+        <canvas id="burndownChart"></canvas>
     </div>
 </div>
 
+<div class="charts-grid" style="margin-top: 20px;">
+    <div class="card chart-container">
+        <h3>💎 Value Density — The Exchange Rate</h3>
+        <p class="chart-caption">Dollars per story point. Step-downs are scope creep events — unfunded scope permanently dilutes the value of every point on the board.</p>
+        <canvas id="vdChart"></canvas>
+    </div>
+
+    <div class="card chart-container">
+        <h3>📈 Performance Indices — CPI &amp; SPI</h3>
+        <p class="chart-caption">Both indices target ≥ 1.0. Right axis shows actual cost per point earned — compare it to Value Density to see exactly where CPI is coming from.</p>
+        <canvas id="cpiSpiChart"></canvas>
+    </div>
+</div>
+
+{# ── Period History Table ── #}
+{% if period_details %}
+<div class="card" style="margin-top: 20px;">
+    <h3>📋 Period Ledger</h3>
+    <p class="chart-caption">Rows highlighted in red indicate a scope change event — the moment Value Density was diluted.</p>
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Period Pts</th>
+                    <th>Cum. Pts</th>
+                    <th>Total Scope</th>
+                    <th>Value Density</th>
+                    <th>Period AC</th>
+                    <th>Cum. AC</th>
+                    <th>EV</th>
+                    <th>CPI</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in period_details %}
+                <tr class="{{ 'scope-creep-row' if row.scope_changed }}">
+                    <td>
+                        {{ row.date }}
+                        {% if row.scope_changed %}
+                        <span class="scope-tag">⚠️ +{{ row.scope_delta }} pts</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.period_points }}</td>
+                    <td>{{ row.cum_points }}</td>
+                    <td>{{ row.scope }}</td>
+                    <td>${{ "{:,.2f}".format(row.value_density) }}</td>
+                    <td>${{ "{:,.0f}".format(row.period_ac) }}</td>
+                    <td>${{ "{:,.0f}".format(row.cum_ac) }}</td>
+                    <td>${{ "{:,.0f}".format(row.ev) }}</td>
+                    <td class="{{ 'text-danger' if row.cpi < 1 else 'text-success' }}">{{ row.cpi }}</td>
+                    <td>
+                        <a href="{{ url_for('edit_period', project_id=project.id, period_id=row.period_id) }}"
+                           class="edit-period-btn">Edit</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <script>
     const projectId = "{{ project.id }}";
+    const startDate = new Date('{{ project.start_date }}');
+    const endDate   = new Date('{{ project.end_date }}');
+    const todayStr  = new Date().toISOString().split('T')[0];
+    const gridColor = 'rgba(255,255,255,0.06)';
 
-    // Fetch Data from API to populate charts
+    function linearPV(dateStr, bac) {
+        const d     = new Date(dateStr);
+        const total = endDate - startDate;
+        if (total <= 0) return 0;
+        return parseFloat((Math.max(0, Math.min(1, (d - startDate) / total)) * bac).toFixed(2));
+    }
+
+    // Dashed "Today" vertical — attached per-chart, closure over todayStr
+    const todayLinePlugin = {
+        id: 'todayLine',
+        afterDraw(chart) {
+            const idx = chart.data.labels.indexOf(todayStr);
+            if (idx < 0) return;
+            const { ctx, chartArea, scales } = chart;
+            if (!chartArea) return;
+            const x = scales.x.getPixelForValue(idx);
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(x, chartArea.top);
+            ctx.lineTo(x, chartArea.bottom);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = 'rgba(88,166,255,0.6)';
+            ctx.setLineDash([5, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.font = '600 11px Inter, sans-serif';
+            ctx.fillStyle = '#58a6ff';
+            ctx.fillText('Today', x + 6, chartArea.top + 14);
+            ctx.restore();
+        }
+    };
+
     fetch(`/api/project/${projectId}`)
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
             const periods = data.periods.sort((a, b) => new Date(a.date) - new Date(b.date));
-            const labels = periods.map(p => p.date);
+            if (!periods.length) return;
+            const bac          = data.bac;
+            const initialScope = periods[0].total_estimated_effort || 1;
+            const totalDur     = endDate - startDate;
 
-            // Calculate Accumulations for EVMS
-            let cumAC = 0;
-            let cumEV = 0;
-            let cumPV = 0; // Simplified
+            // ── Single pass: build every series at once ────────────────────
+            const labels       = [];
+            const acData       = [], evData    = [], pvData      = [];
+            const vdData       = [], vdBase    = [];
+            const cpiData      = [], spiData   = [], targetLine  = [];
+            const velocityData = [], remaining = [], idealBurn   = [];
+            const costPerPt    = [];   // actual $/pt earned (for CPI/SPI right axis)
 
-            const acData = [];
-            const evData = [];
-            const pointsData = [];
-
-            // Re-calculate simplistic cumulative to draw lines
-            const totalScope = periods.length > 0 ? periods[periods.length - 1].total_estimated_effort : 1;
-            const bac = data.bac;
-
-            let burnedPoints = 0;
+            let cumAC = 0, cumPts = 0, baseVD = null;
 
             periods.forEach(p => {
-                burnedPoints += p.points_completed;
-                cumAC += p.actual_cost;
+                cumPts += p.points_completed;
+                cumAC  += p.actual_cost;
+                const scope = p.total_estimated_effort || 1;
 
-                // EV Calculation logic
-                const percentComplete = burnedPoints / p.total_estimated_effort;
-                const ev = percentComplete * bac;
+                const ev  = (cumPts / scope) * bac;
+                const pv  = linearPV(p.date, bac);
+                const vd  = bac / scope;
+                const cpi = cumAC > 0 ? ev / cumAC       : 0;
+                const spi = pv    > 0 ? ev / pv           : 0;
+                const cpp = cumPts > 0 ? cumAC / cumPts   : 0;   // actual cost per point
 
-                acData.push(cumAC);
-                evData.push(ev);
-                pointsData.push(burnedPoints);
+                // Ideal burndown: linear from initialScope at startDate → 0 at endDate
+                const elapsed  = new Date(p.date) - startDate;
+                const timePct  = totalDur > 0 ? Math.max(0, Math.min(1, elapsed / totalDur)) : 0;
+                const ideal    = parseFloat((initialScope * (1 - timePct)).toFixed(1));
+
+                if (baseVD === null) baseVD = vd;
+
+                labels.push(p.date);
+                acData.push(parseFloat(cumAC.toFixed(2)));
+                evData.push(parseFloat(ev.toFixed(2)));
+                pvData.push(parseFloat(pv.toFixed(2)));
+                vdData.push(parseFloat(vd.toFixed(2)));
+                vdBase.push(parseFloat(baseVD.toFixed(2)));
+                cpiData.push(parseFloat(cpi.toFixed(3)));
+                spiData.push(parseFloat(spi.toFixed(3)));
+                targetLine.push(1.0);
+                velocityData.push(p.points_completed);          // per-period, not cumulative
+                remaining.push(scope - cumPts);                 // bumps UP on scope creep
+                idealBurn.push(ideal);
+                costPerPt.push(parseFloat(cpp.toFixed(2)));
             });
 
-            // --- Chart 1: EVMS ---
+            // Extend EVMS to today so the Today marker always renders past last period
+            const evmsLabels = [...labels];
+            const evmsEV = [...evData], evmsAC = [...acData], evmsPV = [...pvData];
+            if (!evmsLabels.includes(todayStr) &&
+                (evmsLabels.length === 0 || todayStr > evmsLabels[evmsLabels.length - 1])) {
+                evmsLabels.push(todayStr);
+                evmsEV.push(null);
+                evmsAC.push(null);
+                evmsPV.push(linearPV(todayStr, bac));
+            }
+
+            // ── Chart 1: EVMS ──────────────────────────────────────────────
             new Chart(document.getElementById('evmsChart'), {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    labels: evmsLabels,
                     datasets: [
-                        { label: 'Earned Value (EV)', data: evData, borderColor: '#4caf50', tension: 0.3 },
-                        { label: 'Actual Cost (AC)', data: acData, borderColor: '#f44336', tension: 0.3 },
-                    ]
-                },
-                options: { responsive: true, interaction: { mode: 'index', intersect: false } }
-            });
-
-            // --- Chart 2: The Bridge (Points vs EV) ---
-            new Chart(document.getElementById('bridgeChart'), {
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            type: 'bar',
-                            label: 'Points Burned',
-                            data: pointsData,
-                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                            yAxisID: 'y'
-                        },
-                        {
-                            type: 'line',
-                            label: 'Earned Value ($)',
-                            data: evData,
-                            borderColor: '#4caf50',
-                            yAxisID: 'y1'
-                        }
+                        { label: 'Planned Value (PV)', data: evmsPV,
+                          borderColor: 'rgba(88,166,255,0.55)', borderDash: [6,4],
+                          borderWidth: 1.5, pointRadius: 0, tension: 0, fill: false },
+                        { label: 'Earned Value (EV)', data: evmsEV,
+                          borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.08)',
+                          fill: true, tension: 0.3, pointRadius: 5 },
+                        { label: 'Actual Cost (AC)', data: evmsAC,
+                          borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.08)',
+                          fill: true, tension: 0.3, pointRadius: 5 }
                     ]
                 },
                 options: {
                     responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#8b949e' } },
+                        tooltip: { callbacks: {
+                            label: c => c.parsed.y != null
+                                ? `${c.dataset.label}: $${c.parsed.y.toLocaleString()}` : null
+                        }}
+                    },
                     scales: {
-                        y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Points' } },
-                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Dollars ($)' }, grid: { drawOnChartArea: false } }
+                        x: { ticks: { color: '#8b949e' }, grid: { color: gridColor } },
+                        y: { ticks: { color: '#8b949e', callback: v => '$' + v.toLocaleString() },
+                             grid: { color: gridColor } }
+                    }
+                },
+                plugins: [todayLinePlugin]
+            });
+
+            // ── Chart 2: Release Burndown ──────────────────────────────────
+            // Left axis: remaining scope (line) + ideal line
+            // Right axis: per-period velocity (bars)
+            new Chart(document.getElementById('burndownChart'), {
+                data: {
+                    labels,
+                    datasets: [
+                        { type: 'bar',  label: 'Velocity (pts)',
+                          data: velocityData,
+                          backgroundColor: 'rgba(88,166,255,0.3)', borderColor: '#58a6ff',
+                          borderWidth: 1, yAxisID: 'yVel' },
+                        { type: 'line', label: 'Ideal Burndown',
+                          data: idealBurn,
+                          borderColor: 'rgba(255,255,255,0.2)', borderDash: [6,4],
+                          borderWidth: 1.5, pointRadius: 0, tension: 0,
+                          fill: false, yAxisID: 'yScope' },
+                        { type: 'line', label: 'Remaining Scope',
+                          data: remaining,
+                          borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.07)',
+                          fill: true, tension: 0,   // no smoothing — shows scope-creep bumps sharply
+                          pointRadius: 5, yAxisID: 'yScope' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { color: '#8b949e' } } },
+                    scales: {
+                        x:      { ticks: { color: '#8b949e' }, grid: { color: gridColor } },
+                        yScope: { type: 'linear', position: 'left',
+                                  ticks: { color: '#f85149' }, grid: { color: gridColor },
+                                  title: { display: true, text: 'Remaining (pts)', color: '#f85149' } },
+                        yVel:   { type: 'linear', position: 'right',
+                                  ticks: { color: '#58a6ff' }, grid: { drawOnChartArea: false },
+                                  title: { display: true, text: 'Velocity (pts)', color: '#58a6ff' } }
+                    }
+                }
+            });
+
+            // ── Chart 3: Value Density ─────────────────────────────────────
+            new Chart(document.getElementById('vdChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Baseline VD', data: vdBase,
+                          borderColor: 'rgba(210,153,34,0.3)', borderDash: [6,4],
+                          borderWidth: 1.5, pointRadius: 0, tension: 0, fill: false },
+                        { label: 'Value Density ($/pt)', data: vdData,
+                          borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)',
+                          fill: true, stepped: 'before', pointRadius: 6,
+                          pointBackgroundColor: '#d29922' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#8b949e' } },
+                        tooltip: { callbacks: {
+                            label: c => `${c.dataset.label}: $${c.parsed.y.toLocaleString()}/pt`
+                        }}
+                    },
+                    scales: {
+                        x: { ticks: { color: '#8b949e' }, grid: { color: gridColor } },
+                        y: { ticks: { color: '#8b949e', callback: v => '$' + v.toLocaleString() },
+                             grid: { color: gridColor } }
+                    }
+                }
+            });
+
+            // ── Chart 4: CPI & SPI + Actual $/pt ──────────────────────────
+            // Left axis: CPI, SPI, target 1.0
+            // Right axis: actual cost per point earned — CPI = VD / (actual $/pt),
+            //   so when this line rises above VD, CPI < 1.
+            new Chart(document.getElementById('cpiSpiChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Target (1.0)', data: targetLine,
+                          borderColor: 'rgba(255,255,255,0.15)', borderDash: [6,4],
+                          borderWidth: 1.5, pointRadius: 0, tension: 0,
+                          fill: false, yAxisID: 'yIdx' },
+                        { label: 'CPI (Cost)', data: cpiData,
+                          borderColor: '#3fb950', tension: 0.2, pointRadius: 5,
+                          pointBackgroundColor: '#3fb950', yAxisID: 'yIdx' },
+                        { label: 'SPI (Schedule)', data: spiData,
+                          borderColor: '#58a6ff', tension: 0.2, pointRadius: 5,
+                          pointBackgroundColor: '#58a6ff', yAxisID: 'yIdx' },
+                        { label: 'Actual $/pt', data: costPerPt,
+                          borderColor: '#d29922', borderDash: [4,3],
+                          tension: 0.2, pointRadius: 4,
+                          pointBackgroundColor: '#d29922', yAxisID: 'yCpp' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#8b949e' } },
+                        tooltip: { callbacks: {
+                            label: c => {
+                                if (c.dataset.yAxisID === 'yCpp')
+                                    return `${c.dataset.label}: $${c.parsed.y.toLocaleString()}/pt`;
+                                return `${c.dataset.label}: ${c.parsed.y.toFixed(3)}`;
+                            }
+                        }}
+                    },
+                    scales: {
+                        x:    { ticks: { color: '#8b949e' }, grid: { color: gridColor } },
+                        yIdx: { type: 'linear', position: 'left', min: 0,
+                                ticks: { color: '#8b949e', callback: v => v.toFixed(1) },
+                                grid: { color: gridColor },
+                                title: { display: true, text: 'Index', color: '#8b949e' } },
+                        yCpp: { type: 'linear', position: 'right',
+                                ticks: { color: '#d29922',
+                                         callback: v => '$' + v.toLocaleString() },
+                                grid: { drawOnChartArea: false },
+                                title: { display: true, text: 'Actual $/pt', color: '#d29922' } }
                     }
                 }
             });

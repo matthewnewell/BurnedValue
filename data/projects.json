@@ -1,38 +1,67 @@
 {
-    "9bd0cc62-d7b1-4cda-b2b0-762c78a5d46c": {
-        "id": "9bd0cc62-d7b1-4cda-b2b0-762c78a5d46c",
-        "name": "cats",
-        "bac": 10000.0,
-        "start_date": "2026-01-01",
-        "end_date": "2026-12-01",
-        "periods": [],
-        "description": ""
-    },
-    "0a7e505f-128a-47f0-8017-ccb8fdaa47e4": {
-        "id": "0a7e505f-128a-47f0-8017-ccb8fdaa47e4",
-        "name": "dog",
-        "bac": 100.0,
-        "start_date": "2022-01-01",
-        "end_date": "2026-01-30",
-        "periods": [],
-        "description": ""
-    },
-    "71867235-e0b7-4c8f-b4cb-25fc03d381e2": {
-        "id": "71867235-e0b7-4c8f-b4cb-25fc03d381e2",
-        "name": "dddd",
-        "bac": 333.0,
-        "start_date": "33333-03-31",
-        "end_date": "4444-04-04",
-        "periods": [],
-        "description": ""
-    },
-    "a8d4590a-798f-4406-976a-675bb82835a5": {
-        "id": "a8d4590a-798f-4406-976a-675bb82835a5",
-        "name": "dog walker club",
-        "description": "we walk dogs",
-        "bac": 10000.0,
-        "start_date": "2016-01-01",
-        "end_date": "2026-05-30",
-        "periods": []
+    "demo": {
+        "id": "demo",
+        "is_demo": true,
+        "name": "Digital Transformation Initiative",
+        "description": "Modernizing legacy billing infrastructure to cloud-native microservices. This demo shows what happens when scope is added without funding \u2014 Value Density dilutes and CPI craters.",
+        "bac": 250000.0,
+        "start_date": "2025-12-26",
+        "end_date": "2026-06-26",
+        "periods": [
+            {
+                "date": "2026-01-09",
+                "points_completed": 25,
+                "labor_hours": 500,
+                "labor_rate": 40,
+                "non_labor_cost": 5000,
+                "actual_cost": 25000,
+                "total_estimated_effort": 200
+            },
+            {
+                "date": "2026-01-23",
+                "points_completed": 22,
+                "labor_hours": 480,
+                "labor_rate": 40,
+                "non_labor_cost": 3000,
+                "actual_cost": 22200,
+                "total_estimated_effort": 200
+            },
+            {
+                "date": "2026-02-06",
+                "points_completed": 20,
+                "labor_hours": 520,
+                "labor_rate": 40,
+                "non_labor_cost": 4000,
+                "actual_cost": 24800,
+                "total_estimated_effort": 240
+            },
+            {
+                "date": "2026-02-20",
+                "points_completed": 18,
+                "labor_hours": 480,
+                "labor_rate": 40,
+                "non_labor_cost": 2000,
+                "actual_cost": 21200,
+                "total_estimated_effort": 240
+            },
+            {
+                "date": "2026-03-06",
+                "points_completed": 22,
+                "labor_hours": 500,
+                "labor_rate": 40,
+                "non_labor_cost": 3500,
+                "actual_cost": 23500,
+                "total_estimated_effort": 240
+            },
+            {
+                "date": "2026-03-20",
+                "points_completed": 19,
+                "labor_hours": 460,
+                "labor_rate": 40,
+                "non_labor_cost": 2000,
+                "actual_cost": 20400,
+                "total_estimated_effort": 260
+            }
+        ]
     }
 }
