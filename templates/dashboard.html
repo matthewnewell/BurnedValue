@@ -16,11 +16,16 @@
                 Contract Value: <strong>${{ "{:,.0f}".format(project.contract_value) }}</strong>
                 &nbsp;|&nbsp;
                 {% endif %}
-                Budget (BAC): <strong>${{ "{:,.0f}".format(project.bac) }}</strong>
-                {% if project.contract_value %}
-                &nbsp;|&nbsp; Management Reserve: <strong class="text-success">${{ "{:,.0f}".format(project.contract_value - project.bac) }}</strong>
+                Budget at Complete (BAC): <strong>${{ "{:,.0f}".format(project.bac) }}</strong>
+            </span>
+            {% if project.contract_value %}
+            <span class="meta-line">
+                Management Reserve (Baseline): <strong class="text-success">${{ "{:,.0f}".format(project.contract_value - project.bac) }}</strong>
+                {% if metrics.eac > project.bac %}
+                &nbsp;|&nbsp; Remaining: <strong class="{{ 'text-danger' if metrics.eac >= project.contract_value else 'text-warning' }}">${{ "{:,.0f}".format([project.contract_value - metrics.eac, 0]|max) }}</strong>
                 {% endif %}
             </span>
+            {% endif %}
             <span class="meta-line">
                 Baseline Scope: <strong>{{ baseline_scope|int }} pts</strong>
                 &nbsp;|&nbsp;
@@ -76,7 +81,7 @@
 
     <div class="card kpi {{ 'danger' if metrics.cpi > 0 and metrics.cpi < 1 else ('success' if metrics.cpi >= 1 else '') }}">
         <label>
-            Cost Performance Index (CPI)
+            CPI
             <span class="tooltip-wrapper">
                 <span class="tooltip-icon">?</span>
                 <span class="tooltip-text">
@@ -90,12 +95,20 @@
             </span>
         </label>
         <div class="value">{{ metrics.cpi if metrics.cpi > 0 else '—' }}</div>
-        <div class="sub">Target: ≥ 1.0</div>
+        <div class="sub">
+            {% if metrics.cpi >= 1 %}
+            ${{ "{:,.2f}".format(metrics.cpi) }} earned per $1 spent
+            {% elif metrics.cpi > 0 %}
+            only ${{ "{:,.2f}".format(metrics.cpi) }} earned per $1 spent
+            {% else %}
+            Target: ≥ 1.0
+            {% endif %}
+        </div>
     </div>
 
     <div class="card kpi {{ 'danger' if metrics.spi > 0 and metrics.spi < 1 else ('success' if metrics.spi >= 1 else '') }}">
         <label>
-            Schedule Performance Index (SPI)
+            SPI
             <span class="tooltip-wrapper">
                 <span class="tooltip-icon">?</span>
                 <span class="tooltip-text">
@@ -108,10 +121,18 @@
             </span>
         </label>
         <div class="value">{{ metrics.spi if metrics.spi > 0 else '—' }}</div>
-        <div class="sub">Target: ≥ 1.0</div>
+        <div class="sub">
+            {% if metrics.spi >= 1 %}
+            delivering {{ "{:,.2f}".format(metrics.spi) }}x planned pace
+            {% elif metrics.spi > 0 %}
+            delivering {{ "{:,.2f}".format(metrics.spi) }}x planned pace
+            {% else %}
+            Target: ≥ 1.0
+            {% endif %}
+        </div>
     </div>
 
-    <div class="card kpi">
+    <div class="card kpi {{ 'danger' if metrics.actual_cost_per_point > metrics.value_density else ('success' if metrics.actual_cost_per_point > 0 else '') }}">
         <label>
             Value Density (VD)
             <span class="tooltip-wrapper">
@@ -125,10 +146,16 @@
             </span>
         </label>
         <div class="value">${{ "{:,.2f}".format(metrics.value_density) }}<span style="font-size:1rem; font-weight:400">/pt</span></div>
-        <div class="sub">BAC ÷ Total Scope</div>
+        <div class="sub">
+            {% if scope_growth > 0 %}
+            {{ scope_growth|int }} pts of unfunded scope — {{ (scope_growth / metrics.avg_velocity)|round(1) }} intervals to absorb at current velocity
+            {% else %}
+            budget per story point
+            {% endif %}
+        </div>
     </div>
 
-    <div class="card kpi">
+    <div class="card kpi {{ 'success' if metrics.ev >= metrics.pv and metrics.ev > 0 else ('danger' if metrics.ev > 0 else '') }}">
         <label>
             Earned Value (EV)
             <span class="tooltip-wrapper">
@@ -141,12 +168,26 @@
             </span>
         </label>
         <div class="value">${{ "{:,.0f}".format(metrics.ev) }}</div>
-        <div class="sub">{{ metrics.percent_complete }}% complete</div>
+        <div class="sub">
+            {{ metrics.percent_complete }}% complete
+            {% if metrics.ev > 0 and metrics.ev < metrics.pv %}
+            — ${{ "{:,.0f}".format(metrics.pv - metrics.ev) }} behind planned value
+            {% elif metrics.ev >= metrics.pv and metrics.ev > 0 %}
+            — ${{ "{:,.0f}".format(metrics.ev - metrics.pv) }} ahead of plan
+            {% endif %}
+        </div>
     </div>
 
-    <div class="card kpi {{ 'danger' if metrics.eac > metrics.bac else 'success' }}">
+    {% if metrics.eac > project.contract_value %}
+        {% set eac_status = 'danger' %}
+    {% elif metrics.eac > metrics.bac %}
+        {% set eac_status = 'warning' %}
+    {% else %}
+        {% set eac_status = 'success' %}
+    {% endif %}
+    <div class="card kpi {{ eac_status }}">
         <label>
-            Estimate at Completion (EAC)
+            EAC
             <span class="tooltip-wrapper">
                 <span class="tooltip-icon">?</span>
                 <span class="tooltip-text">
@@ -160,7 +201,11 @@
         <div class="value">${{ "{:,.0f}".format(metrics.eac) if metrics.eac > 0 else '—' }}</div>
         <div class="sub">
             {% if metrics.eac > metrics.bac %}
-            +${{ "{:,.0f}".format(metrics.eac - metrics.bac) }} over budget
+            +${{ "{:,.0f}".format(metrics.eac - metrics.bac) }} over BAC
+            {% if project.contract_value and metrics.eac < project.contract_value %}
+            {% set mr_remaining = project.contract_value - metrics.eac %}
+            <br>-${{ "{:,.0f}".format(mr_remaining) }} under Contract Value
+            {% endif %}
             {% elif metrics.eac > 0 %}
             ${{ "{:,.0f}".format(metrics.bac - metrics.eac) }} under budget
             {% endif %}
@@ -570,14 +615,14 @@
             // Line = actual $/pt earned. When the line rises above a bar → that period is in overrun.
             // The trap: team velocity is fixed, but VD keeps dropping. Overrun is mathematical.
             const vdBarColors = vdData.map((vd, i) =>
-                costPerPt[i] > vd ? 'rgba(248,81,73,0.8)' : 'rgba(210,153,34,0.75)'
+                costPerPt[i] > vd ? 'rgba(248,81,73,0.8)' : 'rgba(63,185,80,0.7)'
             );
             const vdBarBorders = vdData.map((vd, i) =>
-                costPerPt[i] > vd ? '#f85149' : '#d29922'
+                costPerPt[i] > vd ? '#f85149' : '#3fb950'
             );
 
             buildLegend('vdLegend', [
-                { label: 'Estimated Cost per Point — within budget', color: '#d29922' },
+                { label: 'Estimated Cost per Point — within budget', color: '#3fb950' },
                 { label: 'Estimated Cost per Point — overrun',       color: '#f85149' },
                 { label: 'Actual $/pt',                               color: '#4db6ac' }
             ]);

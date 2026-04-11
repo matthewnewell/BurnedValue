@@ -41,9 +41,10 @@ class CalculationEngine:
             start_date = datetime.now()
             end_date = datetime.now()
 
-        now = datetime.now()
+        # PV at the last period date — consistent with EV which is also cumulative to that point
+        last_period_date = datetime.strptime(sorted_periods[-1]['date'], '%Y-%m-%d')
         total_duration = (end_date - start_date).total_seconds()
-        elapsed = (now - start_date).total_seconds()
+        elapsed = (last_period_date - start_date).total_seconds()
 
         if elapsed < 0:
             planned_percent = 0
@@ -67,6 +68,8 @@ class CalculationEngine:
             "eac": round(eac, 2),
             "bac": project['bac'],
             "value_density": round(value_density, 2),
+            "actual_cost_per_point": round(total_ac / total_points_completed, 2) if total_points_completed > 0 else 0,
+            "avg_velocity": round(total_points_completed / len(sorted_periods), 1),
             "percent_complete": round(percent_complete * 100, 1),
             "total_points": total_points_completed,
             "total_scope": current_total_scope
@@ -177,7 +180,7 @@ class CalculationEngine:
             lines.append(f"{len(scope_creep_events)} scope creep event(s): {', '.join(event_strs)}.")
         if vd_dilution_pct > 0:
             lines.append(
-                f"Value Density diluted from ${initial_vd:,.2f}/pt \u2192 ${current_vd:,.2f}/pt "
+                f"Value Density diluted from ${initial_vd:,.0f}/pt \u2192 ${current_vd:,.0f}/pt "
                 f"({vd_dilution_pct}% loss in point value)."
             )
         if overrun > 0:

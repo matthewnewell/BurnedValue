@@ -21,15 +21,9 @@ def _build_demo_project():
     return {
         "id": "demo",
         "is_demo": True,
-        "_seed_version": 3,
+        "_seed_version": 7,
         "name": "Digital Transformation Initiative",
-        "description": (
-            "Modernizing legacy billing infrastructure to cloud-native microservices. "
-            "The project launched strong — team was efficient, costs well under budget. "
-            "Then scope was added twice without funding. "
-            "Value Density diluted, CPI cratered, and the Estimate at Completion now exceeds the Contract Value. "
-            "This is what unfunded scope creep looks like."
-        ),
+        "description": "Sample project — modernizing legacy billing infrastructure to cloud-native microservices.",
         "contract_value": 262000.0,
         "bac": 250000.0,
         "start_date": start.isoformat(),
@@ -38,16 +32,16 @@ def _build_demo_project():
         "interval_size": 2,
         "baseline_scope": 200.0,
         "periods": [
-            # Strong start — AC well below EV, team is efficient
-            {"period_id": pids[0], "date": d(2),  "scope_delta":  0, "points_completed": 28, "labor_hours": 400, "labor_rate": 40, "non_labor_cost":  4000, "actual_cost": 20000, "total_estimated_effort": 200},
-            {"period_id": pids[1], "date": d(4),  "scope_delta":  0, "points_completed": 25, "labor_hours": 380, "labor_rate": 40, "non_labor_cost":  3800, "actual_cost": 19000, "total_estimated_effort": 200},
-            # Scope creep +40 — costs spike, velocity drops, lines begin to cross
-            {"period_id": pids[2], "date": d(6),  "scope_delta": 40, "points_completed": 20, "labor_hours": 520, "labor_rate": 40, "non_labor_cost":  7200, "actual_cost": 28000, "total_estimated_effort": 240},
-            # AC now above EV and diverging
-            {"period_id": pids[3], "date": d(8),  "scope_delta":  0, "points_completed": 18, "labor_hours": 500, "labor_rate": 40, "non_labor_cost":  6000, "actual_cost": 26000, "total_estimated_effort": 240},
-            {"period_id": pids[4], "date": d(10), "scope_delta":  0, "points_completed": 19, "labor_hours": 520, "labor_rate": 40, "non_labor_cost":  6200, "actual_cost": 27000, "total_estimated_effort": 240},
-            # Second scope hit +20 — gap widens further, EAC now exceeds contract value
-            {"period_id": pids[5], "date": d(12), "scope_delta": 20, "points_completed": 17, "labor_hours": 480, "labor_rate": 40, "non_labor_cost":  5800, "actual_cost": 25000, "total_estimated_effort": 260},
+            # Strong start — efficient delivery, AC well below EV, cpp well under VD
+            {"period_id": pids[0], "date": d(2),  "scope_delta":  0, "points_completed": 32, "labor_hours": 360, "labor_rate": 40, "non_labor_cost": 1600, "actual_cost": 16000, "total_estimated_effort": 200},
+            {"period_id": pids[1], "date": d(4),  "scope_delta":  0, "points_completed": 28, "labor_hours": 360, "labor_rate": 40, "non_labor_cost": 1600, "actual_cost": 16000, "total_estimated_effort": 200},
+            # Scope creep +40 — VD steps down, costs rise, team absorbs it
+            {"period_id": pids[2], "date": d(6),  "scope_delta": 40, "points_completed": 22, "labor_hours": 460, "labor_rate": 40, "non_labor_cost": 3600, "actual_cost": 22000, "total_estimated_effort": 240},
+            # Scope creep +70 — VD drops sharply to $806/pt; cumulative cpp still under
+            {"period_id": pids[3], "date": d(8),  "scope_delta": 70, "points_completed": 20, "labor_hours": 420, "labor_rate": 40, "non_labor_cost": 3200, "actual_cost": 20000, "total_estimated_effort": 310},
+            {"period_id": pids[4], "date": d(10), "scope_delta":  0, "points_completed": 22, "labor_hours": 420, "labor_rate": 40, "non_labor_cost": 3200, "actual_cost": 20000, "total_estimated_effort": 310},
+            # Final scope hit +15 — VD drops to $769/pt; cumulative cpp ($793) tips above it → red bar
+            {"period_id": pids[5], "date": d(12), "scope_delta": 15, "points_completed": 21, "labor_hours": 440, "labor_rate": 40, "non_labor_cost": 3400, "actual_cost": 21000, "total_estimated_effort": 325},
         ]
     }
 

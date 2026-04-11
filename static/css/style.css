@@ -183,6 +183,7 @@ a {
 .meta-line {
     color: var(--text-secondary);
     font-size: 0.85rem;
+    white-space: nowrap;
 }
 
 .meta-line strong {
@@ -253,6 +254,7 @@ a {
 
 .kpi.success .value { color: var(--success); }
 .kpi.danger  .value { color: var(--danger); }
+.kpi.warning .value { color: var(--warning); }
 
 /* ── Tooltips ── */
 .tooltip-wrapper {
@@ -471,6 +473,7 @@ a {
 
 .text-success { color: var(--success); font-weight: 600; }
 .text-danger  { color: var(--danger);  font-weight: 600; }
+.text-warning { color: var(--warning); font-weight: 600; }
 
 .edit-period-btn {
     color: var(--accent);
