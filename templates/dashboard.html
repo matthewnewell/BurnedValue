@@ -47,7 +47,9 @@
             <button type="submit" class="btn btn-ghost-neutral" title="Restore demo to its original state">↺ Reset Demo</button>
         </form>
         {% endif %}
-        <a href="{{ url_for('update_project', project_id=project.id) }}" class="btn primary">⚙️ Update Project</a>
+        <a href="{{ url_for('update_project', project_id=project.id) }}" class="btn primary" style="white-space:nowrap;">Update Project</a>
+        <a href="#intervals" class="btn btn-outline-accent" style="white-space:nowrap;">Update Intervals</a>
+        <a href="{{ url_for('bluf', project_id=project.id) }}" class="btn btn-outline-accent" style="white-space:nowrap;font-size:1rem;font-weight:600;">BLUF</a>
     </div>
 </div>
 
@@ -216,14 +218,14 @@
 
 {# ── Charts ── #}
 <div class="charts-grid">
-    <div class="card chart-container">
+    <div class="card chart-container" data-chart="evms">
         <h3>💰 EVMS — Cost &amp; Schedule Performance</h3>
         <p class="chart-caption">EV above AC = under budget. EV below AC = over budget. PV is the plan. The gap widens when scope creep hits.</p>
         <div id="evmsLegend" class="html-legend"></div>
         <canvas id="evmsChart"></canvas>
     </div>
 
-    <div class="card chart-container">
+    <div class="card chart-container" data-chart="burndown">
         <h3>🔥 Release Burndown</h3>
         <p class="chart-caption">Orange line = remaining scope. Upward jumps are scope creep events. Bars show per-period velocity. Ideal line assumes constant pace from day one.</p>
         <div id="burndownLegend" class="html-legend"></div>
@@ -232,30 +234,30 @@
 </div>
 
 <div class="charts-grid" style="margin-top: 20px;">
-    <div class="card chart-container">
+    <div class="card chart-container" data-chart="vd">
         <h3>💎 Value Density — The False Hope</h3>
         <p class="chart-caption">Each bar is the estimated cost per point at the current budget — it steps down every time scope is added without funding. The teal line is what each point actually costs. When the line rises above a bar, that period is in overrun. Team velocity is grounded in past performance and cannot be willed higher. Adding scope without funding means the same dollars must cover more work — the result is a cost overrun, a schedule slip, or both.</p>
         <div id="vdLegend" class="html-legend"></div>
         <canvas id="vdChart"></canvas>
     </div>
 
-    <div class="card chart-container">
+    <div class="card chart-container" data-chart="cpispi">
         <h3>📈 Performance Indices — CPI &amp; SPI</h3>
-        <p class="chart-caption">Both indices target ≥ 1.0. A sustained CPI below the line means the project will overrun at completion — the EAC card above tells you by how much.</p>
+        <p class="chart-caption">Both indices target ≥ 1.0. A sustained CPI below the line means the project will overrun at completion — the EAC card above tells you by how much. A sustained SPI below the line means the team is delivering slower than planned and the end date is at risk.</p>
         <div id="cpiSpiLegend" class="html-legend"></div>
         <canvas id="cpiSpiChart"></canvas>
     </div>
 </div>
 
 {# ── Intervals ── #}
-<div class="card" style="margin-top: 20px;">
+<div id="intervals" class="card" style="margin-top: 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
         <h3 style="margin: 0;">🗓️ Intervals</h3>
         <span class="subtitle">
             Every {{ project.get('interval_size', 2) }} {{ project.get('interval_unit', 'weeks') }}
         </span>
     </div>
-    <p class="chart-caption">Scope creep rows highlighted in red. Click <strong>Enter Data</strong> on any pending interval or <strong>Edit</strong> to revise existing data.</p>
+    <p class="chart-caption">Click <strong>Edit</strong> to revise existing data or <strong>Enter Data</strong> on any pending interval.</p>
 
     {% if intervals %}
     <div class="table-scroll">
@@ -295,11 +297,18 @@
                         </td>
                         <td>{{ row.period_points|int if row else '—' }}</td>
                         <td>{{ ('+' ~ row.scope_delta|int) if row and row.scope_delta > 0 else ('—' if not row else '0') }}</td>
-                        <td>{{ ('$' ~ '{:,.2f}'.format(row.value_density)) if row else '—' }}</td>
+                        {% if row %}
+                            {% set acpp = row.cum_ac / row.cum_points if row.cum_points > 0 else 0 %}
+                            <td style="color: {{ 'var(--danger)' if acpp > row.value_density else 'var(--success)' }}">
+                                ${{ '{:,.2f}'.format(row.value_density) }}
+                            </td>
+                        {% else %}
+                            <td>—</td>
+                        {% endif %}
                         <td>{{ ('$' ~ '{:,.0f}'.format(row.period_ac)) if row else '—' }}</td>
                         <td>{{ ('$' ~ '{:,.0f}'.format(row.cum_ac)) if row else '—' }}</td>
                         <td>{{ ('$' ~ '{:,.0f}'.format(row.ev)) if row else '—' }}</td>
-                        <td class="{{ 'text-danger' if row and row.cpi < 1 else ('text-success' if row and row.cpi >= 1 else '') }}">
+                        <td style="{{ 'color: var(--danger)' if row and row.cpi < 1 else ('color: var(--success)' if row and row.cpi >= 1 else '') }}">
                             {{ row.cpi if row else '—' }}
                         </td>
                         <td>
@@ -324,8 +333,18 @@
     {% endif %}
 </div>
 
+<div id="chartModal" class="chart-modal-overlay">
+    <div class="chart-modal-box">
+        <button class="chart-modal-close" id="chartModalClose">✕</button>
+        <h2 class="chart-modal-title" id="chartModalTitle"></h2>
+        <p class="chart-modal-summary" id="chartModalSummary"></p>
+        <img class="chart-modal-img" id="chartModalImg" src="" alt="Chart enlarged view">
+    </div>
+</div>
+
 <script>
     const projectId     = "{{ project.id }}";
+    const chartInstances = {};
     const startDate     = new Date('{{ project.start_date }}');
     const endDate       = new Date('{{ project.end_date }}');
     const gridColor     = 'rgba(255,255,255,0.06)';
@@ -497,7 +516,7 @@
                 document.getElementById('evmsLegend').innerHTML = `<div class="html-legend-row">${items.join('')}</div>`;
             })();
 
-            new Chart(document.getElementById('evmsChart'), {
+            chartInstances['evms'] = new Chart(document.getElementById('evmsChart'), {
                 type: 'line',
                 data: { labels: evmsLabels, datasets: evmsDatasets },
                 options: {
@@ -560,12 +579,14 @@
                 cursor = nextIntervalDate(cursor);
             }
 
-            // Ensure end date is the final label
+            // Ensure end date is the final label.
+            // If forecast hasn't reached 0, extend the line to PoP End so it terminates
+            // at the vertical deadline marker rather than floating short of it.
             const endLbl = fmtDate(data.end_date);
             if (bdLabels[bdLabels.length - 1] !== endLbl) {
                 bdLabels.push(endLbl);
                 bdRemaining.push(null);
-                bdForecast.push(null);
+                bdForecast.push(forecastScope > 0 ? forecastScope : null);
                 bdVelocity.push(null);
             }
 
@@ -575,7 +596,34 @@
                 { label: 'Velocity (pts)',            color: '#58a6ff' }
             ]);
 
-            new Chart(document.getElementById('burndownChart'), {
+            const popLinePlugin = {
+                id: 'popLine',
+                afterDraw(chart) {
+                    const opts = (chart.options.plugins || {}).popLine;
+                    if (!opts || !opts.label) return;
+                    const idx = chart.data.labels.indexOf(opts.label);
+                    if (idx < 0) return;
+                    const { ctx, chartArea, scales } = chart;
+                    const x = scales.x.getPixelForValue(idx);
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(x, chartArea.top);
+                    ctx.lineTo(x, chartArea.bottom);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([5, 4]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.font = '10px Inter, sans-serif';
+                    ctx.textAlign = 'right';
+                    ctx.fillText('PoP End', x - 5, chartArea.top + 12);
+                    ctx.restore();
+                }
+            };
+
+            chartInstances['burndown'] = new Chart(document.getElementById('burndownChart'), {
+                plugins: [popLinePlugin],
                 data: {
                     labels: bdLabels,
                     datasets: [
@@ -597,7 +645,10 @@
                 options: {
                     responsive: true,
                     interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { display: false },
+                        ...(forecastScope > 0 ? { popLine: { label: endLbl } } : {})
+                    },
                     scales: {
                         x:      { ticks: { color: '#8b949e' }, grid: { color: gridColor } },
                         yScope: { type: 'linear', position: 'left',
@@ -627,7 +678,7 @@
                 { label: 'Actual $/pt',                               color: '#4db6ac' }
             ]);
 
-            new Chart(document.getElementById('vdChart'), {
+            chartInstances['vd'] = new Chart(document.getElementById('vdChart'), {
                 data: {
                     labels,
                     datasets: [
@@ -666,14 +717,17 @@
             // HTML legend: color key + CPI (solid) / SPI (dashed) line style
             (function() {
                 const el = document.getElementById('cpiSpiLegend');
-                el.innerHTML = `<div class="html-legend-row">
+                el.innerHTML = `
+                <div class="html-legend-row">
                     <span class="html-legend-item"><span class="html-legend-line-solid"></span><span>Cost Performance Index (CPI)</span></span>
+                </div>
+                <div class="html-legend-row" style="margin-top:6px;">
                     <span class="html-legend-item"><span class="html-legend-line-dashed"></span><span>Schedule Performance Index (SPI)</span></span>
                 </div>
-                <div class="html-legend-row">
+                <div class="html-legend-row" style="margin-top:10px;">
                     <span class="html-legend-item"><span class="html-legend-swatch" style="background:#3fb950;"></span><span>≥ 1.0 (good)</span></span>
                     <span class="html-legend-item"><span class="html-legend-swatch" style="background:#d29922;"></span><span>crossing 1.0 (caution)</span></span>
-                    <span class="html-legend-item"><span class="html-legend-swatch" style="background:#f85149;"></span><span>< 1.0 (bad)</span></span>
+                    <span class="html-legend-item"><span class="html-legend-swatch" style="background:#f85149;"></span><span>< 1.0 (at risk)</span></span>
                 </div>`;
             })();
 
@@ -687,7 +741,7 @@
                 return (v != null && v >= 1) ? '#3fb950' : '#f85149';
             }
 
-            new Chart(document.getElementById('cpiSpiChart'), {
+            chartInstances['cpispi'] = new Chart(document.getElementById('cpiSpiChart'), {
                 type: 'line',
                 data: {
                     labels,
@@ -712,7 +766,7 @@
                 },
                 options: {
                     responsive: true,
-                    aspectRatio: 1.5,
+                    aspectRatio: 2,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { display: false },
@@ -728,6 +782,54 @@
                     }
                 }
             });
+        });
+
+        // ── Chart Modal ───────────────────────────────────────────────────
+        const chartMeta = {
+            evms: {
+                title: '💰 EVMS — Cost & Schedule Performance',
+                summary: 'The core triangle of earned value management. Planned Value (PV) is what work should have cost by now. Earned Value (EV) is what was actually accomplished, expressed in budget dollars. Actual Cost (AC) is what was spent. When EV tracks above AC, every dollar is delivering more than it costs — the project is under budget. When EV falls below PV, work is behind schedule. The spread between these three lines is the financial story of your project.'
+            },
+            burndown: {
+                title: '🔥 Release Burndown',
+                summary: 'How much work remains, and how fast it\'s disappearing. Each downward slope is progress. Upward jumps are scope additions — work added faster than it\'s completed. Velocity bars show per-interval throughput. The dashed forecast extrapolates current team velocity forward. If it doesn\'t reach zero by the deadline, the project is at risk of not completing on time.'
+            },
+            vd: {
+                title: '💎 Value Density — The False Hope',
+                summary: 'The budget per story point — and how scope creep quietly erodes it. Every time scope grows without a matching budget increase, each point becomes worth less. Green bars show what each point should cost when within budget; red bars signal overrun periods. The teal line shows the actual cost per point delivered. When it rises above a bar, that interval spent more than it was worth. This is the mathematical inevitability of unfunded scope creep.'
+            },
+            cpispi: {
+                title: '📈 Performance Indices — CPI & SPI',
+                summary: 'Two indices, one standard: ≥ 1.0 means healthy. The Cost Performance Index (CPI, solid line) measures cost efficiency — how much earned value you receive per dollar spent. The Schedule Performance Index (SPI, dashed line) measures your pace against the original plan. Segments shift from green to red as performance crosses below 1.0. A sustained reading below the line is a leading indicator of project overrun at completion.'
+            }
+        };
+
+        const modalOverlay = document.getElementById('chartModal');
+        const modalTitle   = document.getElementById('chartModalTitle');
+        const modalSummary = document.getElementById('chartModalSummary');
+        const modalImg     = document.getElementById('chartModalImg');
+        const modalClose   = document.getElementById('chartModalClose');
+
+        function openChartModal(key) {
+            const inst = chartInstances[key];
+            const meta = chartMeta[key];
+            if (!inst || !meta) return;
+            modalTitle.textContent   = meta.title;
+            modalSummary.textContent = meta.summary;
+            modalImg.src             = inst.toBase64Image('image/png', 1);
+            modalOverlay.classList.add('active');
+        }
+
+        document.querySelectorAll('.chart-container[data-chart]').forEach(card => {
+            card.addEventListener('click', () => openChartModal(card.dataset.chart));
+        });
+
+        modalClose.addEventListener('click', () => modalOverlay.classList.remove('active'));
+        modalOverlay.addEventListener('click', e => {
+            if (e.target === modalOverlay) modalOverlay.classList.remove('active');
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') modalOverlay.classList.remove('active');
         });
 </script>
 {% endblock %}

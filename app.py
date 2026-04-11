@@ -271,6 +271,17 @@ def delete_period(project_id, period_id):
     return redirect(url_for('dashboard', project_id=project_id))
 
 
+@app.route('/project/<project_id>/bluf')
+def bluf(project_id):
+    project = get_project_for_request(project_id)
+    if not project:
+        abort(404)
+    periods  = project.get('periods', [])
+    metrics  = CalculationEngine.compute_metrics(project, periods)
+    bluf_data = CalculationEngine.generate_bluf(project, periods, metrics)
+    return render_template('bluf.html', project=project, metrics=metrics, bluf=bluf_data, now=datetime.now())
+
+
 @app.route('/demo/reset', methods=['POST'])
 def reset_demo():
     """Clear this visitor's session edits, restoring the demo to its initial state."""

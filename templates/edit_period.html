@@ -91,17 +91,6 @@
         </div>
     </form>
 
-    <hr class="divider">
-
-    <div class="danger-zone">
-        <h4>⚠️ Delete this period</h4>
-        <p>Removes this period from the ledger. All cumulative metrics will be recalculated.</p>
-        <form method="POST"
-              action="{{ url_for('delete_period', project_id=project.id, period_id=period.period_id) }}"
-              onsubmit="return confirm('Delete period {{ period.date|fmtdate }}? This cannot be undone.')">
-            <button type="submit" class="btn btn-danger">Delete Period</button>
-        </form>
-    </div>
 </div>
 
 <script>

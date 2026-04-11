@@ -104,6 +104,17 @@ a {
     opacity: 0.85;
 }
 
+.btn-outline-accent {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+}
+
+.btn-outline-accent:hover {
+    background: rgba(88, 166, 255, 0.1);
+    opacity: 1;
+}
+
 .btn-ghost-danger {
     background: transparent;
     border: 1px solid var(--danger);
@@ -370,12 +381,90 @@ a {
     line-height: 1.4;
 }
 
+/* ── Chart Modal ── */
+.chart-container {
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+}
+.chart-container:hover {
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.chart-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.chart-modal-overlay.active {
+    display: flex;
+}
+.chart-modal-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px 24px;
+    max-width: 1000px;
+    width: 100%;
+    position: relative;
+    max-height: 92vh;
+    overflow-y: auto;
+}
+.chart-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, color 0.15s;
+}
+.chart-modal-close:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+.chart-modal-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    padding-right: 40px;
+    color: var(--text-primary);
+}
+.chart-modal-summary {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 20px 0;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+}
+.chart-modal-img {
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    display: block;
+}
+
 /* ── HTML Legend (EVMS chart) ── */
 .html-legend {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    margin-bottom: 12px;
+    margin-bottom: 20px;
 }
 .html-legend-row {
     display: flex;
