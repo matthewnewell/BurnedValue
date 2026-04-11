@@ -30,40 +30,97 @@
             <label>Non-Labor / ODC ($)</label>
             <input type="number" id="odc" name="non_labor" step="0.01" placeholder="Materials, Licenses, etc.">
         </div>
-
-        <div class="form-group highlight">
-            <label>Total Period Cost Estimate:</label>
+        <div class="form-group">
+            <label>Total Period Cost:</label>
             <div id="total_cost_display" class="big-number">$0.00</div>
         </div>
 
         <h3>📉 Scope Governance</h3>
-        <div class="form-group warning-border">
-            <label>Total Estimated Effort (Points)</label>
-            <input type="number" name="total_scope" step="0.5"
-                value="{{ project.periods[-1].total_estimated_effort if project.periods else '0' }}">
-            <small>Creating Scope Creep here will dilute your Value Density!</small>
-        </div>
 
-        <button type="submit" class="btn primary">Commit to Ledger</button>
+        {% if not has_periods %}
+        {# First period ever — capture the project baseline #}
+        <div class="scope-grid">
+            <div class="scope-row-locked">
+                <span class="scope-label">Project Baseline</span>
+                <div class="form-group" style="margin:0; flex:1;">
+                    <input type="number" name="baseline_scope" step="0.5" required
+                           placeholder="Total initial scope (pts)">
+                </div>
+                <span class="scope-unit">pts</span>
+            </div>
+        </div>
+        <small class="scope-note">This sets the locked baseline for the entire project.</small>
+
+        {% else %}
+        {# Subsequent periods — show decomposed scope view #}
+        <div class="scope-grid">
+            <div class="scope-row-locked">
+                <span class="scope-label">Project Baseline</span>
+                <span class="scope-value-locked">{{ baseline_scope }}</span>
+                <span class="scope-unit">pts <span class="lock-icon">🔒</span></span>
+            </div>
+            <div class="scope-row-locked">
+                <span class="scope-label">Prior Scope Growth</span>
+                <span class="scope-value-locked {{ 'text-danger' if prior_growth > 0 }}">
+                    +{{ prior_growth }}
+                </span>
+                <span class="scope-unit">pts</span>
+            </div>
+            <div class="scope-row-input warning-border">
+                <span class="scope-label">New Scope Delta</span>
+                <input type="number" id="scope_delta" name="scope_delta"
+                       step="0.5" value="0" min="0"
+                       style="width:100px; text-align:right;">
+                <span class="scope-unit">pts</span>
+            </div>
+            <div class="scope-divider"></div>
+            <div class="scope-row-total">
+                <span class="scope-label">Total Adjusted Scope</span>
+                <span id="total_scope_display" class="big-number" style="font-size:1.3rem;">
+                    {{ current_total }}
+                </span>
+                <span class="scope-unit">pts</span>
+            </div>
+        </div>
+        <small id="vd-warning" class="scope-warning" style="display:none;">
+            ⚠️ Increasing scope here will dilute Value Density.
+        </small>
+        {% endif %}
+
+        <button type="submit" class="btn primary" style="margin-top:20px;">Commit to Ledger</button>
     </form>
 </div>
 
 <script>
-    const hoursInput = document.getElementById('hours');
-    const rateInput = document.getElementById('rate');
-    const odcInput = document.getElementById('odc');
-    const display = document.getElementById('total_cost_display');
+    // Cost calculator
+    const h = document.getElementById('hours');
+    const r = document.getElementById('rate');
+    const o = document.getElementById('odc');
+    const costDisplay = document.getElementById('total_cost_display');
 
-    function calculate() {
-        const h = parseFloat(hoursInput.value) || 0;
-        const r = parseFloat(rateInput.value) || 0;
-        const o = parseFloat(odcInput.value) || 0;
-        const total = (h * r) + o;
-        display.innerText = "$" + total.toFixed(2);
+    function recalcCost() {
+        const total = (parseFloat(h.value)||0) * (parseFloat(r.value)||0)
+                    + (parseFloat(o.value)||0);
+        costDisplay.innerText = '$' + total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
     }
+    if (h) h.addEventListener('input', recalcCost);
+    if (r) r.addEventListener('input', recalcCost);
+    if (o) o.addEventListener('input', recalcCost);
 
-    hoursInput.addEventListener('input', calculate);
-    rateInput.addEventListener('input', calculate);
-    odcInput.addEventListener('input', calculate);
+    // Scope delta calculator (only present when has_periods)
+    const deltaInput   = document.getElementById('scope_delta');
+    const scopeDisplay = document.getElementById('total_scope_display');
+    const vdWarning    = document.getElementById('vd-warning');
+    const baseline     = {{ baseline_scope or 0 }};
+    const priorGrowth  = {{ prior_growth }};
+
+    if (deltaInput) {
+        deltaInput.addEventListener('input', function() {
+            const delta = parseFloat(this.value) || 0;
+            const total = baseline + priorGrowth + delta;
+            scopeDisplay.innerText = total.toLocaleString('en-US', {maximumFractionDigits:1});
+            vdWarning.style.display = delta > 0 ? 'block' : 'none';
+        });
+    }
 </script>
 {% endblock %}

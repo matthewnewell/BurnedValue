@@ -7,14 +7,34 @@
             {{ project.name }}
             {% if project.is_demo %}<span class="badge badge-demo" style="vertical-align: middle; font-size: 0.6em;">DEMO</span>{% endif %}
         </h2>
-        <span class="subtitle">
-            Budget: ${{ "{:,.0f}".format(project.bac) }}
-            &nbsp;|&nbsp; Scope: {{ metrics.total_scope }} pts
-            &nbsp;|&nbsp; {{ project.start_date }} → {{ project.end_date }}
-        </span>
         {% if project.description %}
         <p class="description">{{ project.description }}</p>
         {% endif %}
+        <div class="project-header-meta">
+            <span class="meta-line">
+                {% if project.contract_value %}
+                Contract Value: <strong>${{ "{:,.0f}".format(project.contract_value) }}</strong>
+                &nbsp;|&nbsp;
+                {% endif %}
+                Budget (BAC): <strong>${{ "{:,.0f}".format(project.bac) }}</strong>
+                {% if project.contract_value %}
+                &nbsp;|&nbsp; Management Reserve: <strong class="text-success">${{ "{:,.0f}".format(project.contract_value - project.bac) }}</strong>
+                {% endif %}
+            </span>
+            <span class="meta-line">
+                Baseline Scope: <strong>{{ baseline_scope|int }} pts</strong>
+                &nbsp;|&nbsp;
+                Scope Growth:
+                <strong class="{{ 'text-danger' if scope_growth > 0 else '' }}">
+                    {{ '+' if scope_growth > 0 }}{{ scope_growth|int }} pts
+                </strong>
+                &nbsp;|&nbsp;
+                Total Scope: <strong>{{ (baseline_scope + scope_growth)|int }} pts</strong>
+            </span>
+            <span class="meta-line">
+                Period of Performance: <strong>{{ project.start_date|fmtdate }} → {{ project.end_date|fmtdate }}</strong>
+            </span>
+        </div>
     </div>
     <div style="display: flex; gap: 10px; align-items: center;">
         {% if project.is_demo %}
@@ -166,14 +186,14 @@
 
 <div class="charts-grid" style="margin-top: 20px;">
     <div class="card chart-container">
-        <h3>💎 Value Density — The Exchange Rate</h3>
-        <p class="chart-caption">Dollars per story point. Step-downs are scope creep events — unfunded scope permanently dilutes the value of every point on the board.</p>
+        <h3>💎 Value Density — The False Hope</h3>
+        <p class="chart-caption">Amber (stepped) is what each point <em>should</em> cost at budget. Red is what it <em>does</em> cost. When the red line stays flat while amber steps down, the team's velocity is fixed — scope creep doesn't create capacity, it just guarantees overrun.</p>
         <canvas id="vdChart"></canvas>
     </div>
 
     <div class="card chart-container">
         <h3>📈 Performance Indices — CPI &amp; SPI</h3>
-        <p class="chart-caption">Both indices target ≥ 1.0. Right axis shows actual cost per point earned — compare it to Value Density to see exactly where CPI is coming from.</p>
+        <p class="chart-caption">Both indices target ≥ 1.0. A sustained CPI below the line means the project will overrun at completion — the EAC card above tells you by how much.</p>
         <canvas id="cpiSpiChart"></canvas>
     </div>
 </div>
@@ -203,7 +223,7 @@
                 {% for row in period_details %}
                 <tr class="{{ 'scope-creep-row' if row.scope_changed }}">
                     <td>
-                        {{ row.date }}
+                        {{ row.date|fmtdate }}
                         {% if row.scope_changed %}
                         <span class="scope-tag">⚠️ +{{ row.scope_delta }} pts</span>
                         {% endif %}
@@ -229,11 +249,19 @@
 {% endif %}
 
 <script>
-    const projectId = "{{ project.id }}";
-    const startDate = new Date('{{ project.start_date }}');
-    const endDate   = new Date('{{ project.end_date }}');
-    const todayStr  = new Date().toISOString().split('T')[0];
-    const gridColor = 'rgba(255,255,255,0.06)';
+    const projectId     = "{{ project.id }}";
+    const startDate     = new Date('{{ project.start_date }}');
+    const endDate       = new Date('{{ project.end_date }}');
+    const todayISO      = new Date().toISOString().split('T')[0];
+    const todayStr      = fmtDate(todayISO);
+    const gridColor     = 'rgba(255,255,255,0.06)';
+    const contractValue = {{ project.contract_value if project.contract_value else 'null' }};
+
+    function fmtDate(iso) {
+        // yyyy-mm-dd → mm-dd-yyyy
+        const [y, m, d] = iso.split('-');
+        return `${m}-${d}-${y}`;
+    }
 
     function linearPV(dateStr, bac) {
         const d     = new Date(dateStr);
@@ -305,14 +333,14 @@
 
                 if (baseVD === null) baseVD = vd;
 
-                labels.push(p.date);
+                labels.push(fmtDate(p.date));
                 acData.push(parseFloat(cumAC.toFixed(2)));
                 evData.push(parseFloat(ev.toFixed(2)));
                 pvData.push(parseFloat(pv.toFixed(2)));
                 vdData.push(parseFloat(vd.toFixed(2)));
                 vdBase.push(parseFloat(baseVD.toFixed(2)));
-                cpiData.push(parseFloat(cpi.toFixed(3)));
-                spiData.push(parseFloat(spi.toFixed(3)));
+                cpiData.push(parseFloat(cpi.toFixed(2)));
+                spiData.push(parseFloat(spi.toFixed(2)));
                 targetLine.push(1.0);
                 velocityData.push(p.points_completed);          // per-period, not cumulative
                 remaining.push(scope - cumPts);                 // bumps UP on scope creep
@@ -323,31 +351,48 @@
             // Extend EVMS to today so the Today marker always renders past last period
             const evmsLabels = [...labels];
             const evmsEV = [...evData], evmsAC = [...acData], evmsPV = [...pvData];
+            // Compare using ISO strings for reliable chronological ordering
+            const lastPeriodISO = periods.length ? periods[periods.length - 1].date : '';
             if (!evmsLabels.includes(todayStr) &&
-                (evmsLabels.length === 0 || todayStr > evmsLabels[evmsLabels.length - 1])) {
+                (evmsLabels.length === 0 || todayISO > lastPeriodISO)) {
                 evmsLabels.push(todayStr);
                 evmsEV.push(null);
                 evmsAC.push(null);
-                evmsPV.push(linearPV(todayStr, bac));
+                evmsPV.push(linearPV(todayISO, bac));
             }
 
             // ── Chart 1: EVMS ──────────────────────────────────────────────
+            const evmsDatasets = [];
+
+            // Contract Value ceiling — flat dotted line, only if set
+            if (contractValue !== null) {
+                evmsDatasets.push({
+                    label: 'Contract Value',
+                    data: evmsLabels.map(() => contractValue),
+                    borderColor: 'rgba(63,185,80,0.5)',
+                    borderDash: [3, 5],
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    tension: 0,
+                    fill: false
+                });
+            }
+
+            evmsDatasets.push(
+                { label: 'Planned Value (PV)', data: evmsPV,
+                  borderColor: 'rgba(88,166,255,0.55)', borderDash: [6,4],
+                  borderWidth: 1.5, pointRadius: 0, tension: 0, fill: false },
+                { label: 'Earned Value (EV)', data: evmsEV,
+                  borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.08)',
+                  fill: true, tension: 0.3, pointRadius: 5 },
+                { label: 'Actual Cost (AC)', data: evmsAC,
+                  borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.08)',
+                  fill: true, tension: 0.3, pointRadius: 5 }
+            );
+
             new Chart(document.getElementById('evmsChart'), {
                 type: 'line',
-                data: {
-                    labels: evmsLabels,
-                    datasets: [
-                        { label: 'Planned Value (PV)', data: evmsPV,
-                          borderColor: 'rgba(88,166,255,0.55)', borderDash: [6,4],
-                          borderWidth: 1.5, pointRadius: 0, tension: 0, fill: false },
-                        { label: 'Earned Value (EV)', data: evmsEV,
-                          borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.08)',
-                          fill: true, tension: 0.3, pointRadius: 5 },
-                        { label: 'Actual Cost (AC)', data: evmsAC,
-                          borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.08)',
-                          fill: true, tension: 0.3, pointRadius: 5 }
-                    ]
-                },
+                data: { labels: evmsLabels, datasets: evmsDatasets },
                 options: {
                     responsive: true,
                     interaction: { mode: 'index', intersect: false },
@@ -406,19 +451,23 @@
                 }
             });
 
-            // ── Chart 3: Value Density ─────────────────────────────────────
+            // ── Chart 3: Value Density vs Actual $/pt ─────────────────────
+            // VD drops on scope creep; Actual $/pt stays flat (team velocity
+            // is fixed). The gap between them IS the overrun.
+            // When Actual $/pt > VD → CPI < 1.0. That's the false hope.
             new Chart(document.getElementById('vdChart'), {
                 type: 'line',
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Baseline VD', data: vdBase,
-                          borderColor: 'rgba(210,153,34,0.3)', borderDash: [6,4],
-                          borderWidth: 1.5, pointRadius: 0, tension: 0, fill: false },
-                        { label: 'Value Density ($/pt)', data: vdData,
-                          borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.1)',
+                        { label: 'Budgeted $/pt (VD)', data: vdData,
+                          borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.07)',
                           fill: true, stepped: 'before', pointRadius: 6,
-                          pointBackgroundColor: '#d29922' }
+                          pointBackgroundColor: '#d29922', borderWidth: 2 },
+                        { label: 'Actual $/pt', data: costPerPt,
+                          borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.07)',
+                          fill: true, tension: 0.2, pointRadius: 5,
+                          pointBackgroundColor: '#f85149', borderWidth: 2 }
                     ]
                 },
                 options: {
@@ -427,7 +476,7 @@
                     plugins: {
                         legend: { labels: { color: '#8b949e' } },
                         tooltip: { callbacks: {
-                            label: c => `${c.dataset.label}: $${c.parsed.y.toLocaleString()}/pt`
+                            label: c => `${c.dataset.label}: $${c.parsed.y.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}/pt`
                         }}
                     },
                     scales: {
@@ -438,10 +487,7 @@
                 }
             });
 
-            // ── Chart 4: CPI & SPI + Actual $/pt ──────────────────────────
-            // Left axis: CPI, SPI, target 1.0
-            // Right axis: actual cost per point earned — CPI = VD / (actual $/pt),
-            //   so when this line rises above VD, CPI < 1.
+            // ── Chart 4: CPI & SPI Trend ───────────────────────────────────
             new Chart(document.getElementById('cpiSpiChart'), {
                 type: 'line',
                 data: {
@@ -449,18 +495,13 @@
                     datasets: [
                         { label: 'Target (1.0)', data: targetLine,
                           borderColor: 'rgba(255,255,255,0.15)', borderDash: [6,4],
-                          borderWidth: 1.5, pointRadius: 0, tension: 0,
-                          fill: false, yAxisID: 'yIdx' },
+                          borderWidth: 1.5, pointRadius: 0, tension: 0, fill: false },
                         { label: 'CPI (Cost)', data: cpiData,
                           borderColor: '#3fb950', tension: 0.2, pointRadius: 5,
-                          pointBackgroundColor: '#3fb950', yAxisID: 'yIdx' },
+                          pointBackgroundColor: '#3fb950' },
                         { label: 'SPI (Schedule)', data: spiData,
                           borderColor: '#58a6ff', tension: 0.2, pointRadius: 5,
-                          pointBackgroundColor: '#58a6ff', yAxisID: 'yIdx' },
-                        { label: 'Actual $/pt', data: costPerPt,
-                          borderColor: '#d29922', borderDash: [4,3],
-                          tension: 0.2, pointRadius: 4,
-                          pointBackgroundColor: '#d29922', yAxisID: 'yCpp' }
+                          pointBackgroundColor: '#58a6ff' }
                     ]
                 },
                 options: {
@@ -469,24 +510,14 @@
                     plugins: {
                         legend: { labels: { color: '#8b949e' } },
                         tooltip: { callbacks: {
-                            label: c => {
-                                if (c.dataset.yAxisID === 'yCpp')
-                                    return `${c.dataset.label}: $${c.parsed.y.toLocaleString()}/pt`;
-                                return `${c.dataset.label}: ${c.parsed.y.toFixed(3)}`;
-                            }
+                            label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}`
                         }}
                     },
                     scales: {
-                        x:    { ticks: { color: '#8b949e' }, grid: { color: gridColor } },
-                        yIdx: { type: 'linear', position: 'left', min: 0,
-                                ticks: { color: '#8b949e', callback: v => v.toFixed(1) },
-                                grid: { color: gridColor },
-                                title: { display: true, text: 'Index', color: '#8b949e' } },
-                        yCpp: { type: 'linear', position: 'right',
-                                ticks: { color: '#d29922',
-                                         callback: v => '$' + v.toLocaleString() },
-                                grid: { drawOnChartArea: false },
-                                title: { display: true, text: 'Actual $/pt', color: '#d29922' } }
+                        x: { ticks: { color: '#8b949e' }, grid: { color: gridColor } },
+                        y: { min: 0,
+                             ticks: { color: '#8b949e', callback: v => v.toFixed(1) },
+                             grid: { color: gridColor } }
                     }
                 }
             });

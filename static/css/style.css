@@ -173,6 +173,23 @@ a {
     margin-top: 4px;
 }
 
+.project-header-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.meta-line {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.meta-line strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
 .description {
     margin-top: 10px;
     max-width: 640px;
@@ -413,6 +430,91 @@ a {
 
 .edit-period-btn:hover {
     opacity: 1;
+}
+
+/* ── Scope Governance grid ── */
+.scope-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.scope-row-locked,
+.scope-row-input,
+.scope-row-total {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.scope-row-locked:last-child,
+.scope-row-input:last-child,
+.scope-row-total:last-child {
+    border-bottom: none;
+}
+
+.scope-row-locked {
+    background: rgba(255,255,255,0.02);
+}
+
+.scope-row-input {
+    background: rgba(210,153,34,0.04);
+    border-left: 3px solid var(--warning);
+}
+
+.scope-row-total {
+    background: rgba(88,166,255,0.04);
+}
+
+.scope-label {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.scope-value-locked {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: right;
+    min-width: 60px;
+}
+
+.scope-unit {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    min-width: 40px;
+}
+
+.lock-icon {
+    font-size: 0.7rem;
+    opacity: 0.5;
+}
+
+.scope-divider {
+    height: 1px;
+    background: var(--border);
+}
+
+.scope-warning {
+    display: block;
+    color: var(--warning);
+    font-size: 0.8rem;
+    margin-top: 6px;
+}
+
+.scope-note {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-top: 4px;
+    display: block;
 }
 
 /* ── Edit Period form extras ── */

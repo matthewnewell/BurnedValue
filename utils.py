@@ -5,16 +5,10 @@ from datetime import datetime, timedelta
 
 DATA_FILE = os.path.join('data', 'projects.json')
 
-# Fixed period IDs so they survive demo rebuilds and session lookups stay stable
 _DEMO_PERIOD_IDS = [f"demo-p{i}" for i in range(1, 10)]
 
 
 def _build_demo_project():
-    """
-    Builds the demo project with dates relative to today.
-    Period IDs are fixed strings so edit/delete routes remain stable
-    across page loads regardless of date recalculation.
-    """
     today = datetime.now().date()
     start = today - timedelta(weeks=15)
     end   = today + timedelta(weeks=11)
@@ -32,16 +26,18 @@ def _build_demo_project():
             "This demo shows what happens when scope is added without funding — "
             "Value Density dilutes and CPI craters."
         ),
+        "contract_value": 275000.0,
         "bac": 250000.0,
         "start_date": start.isoformat(),
         "end_date":   end.isoformat(),
+        "baseline_scope": 200.0,
         "periods": [
-            {"period_id": pids[0], "date": d(13), "points_completed": 25, "labor_hours": 500, "labor_rate": 40, "non_labor_cost": 5000,  "actual_cost": 25000, "total_estimated_effort": 200},
-            {"period_id": pids[1], "date": d(11), "points_completed": 22, "labor_hours": 480, "labor_rate": 40, "non_labor_cost": 3000,  "actual_cost": 22200, "total_estimated_effort": 200},
-            {"period_id": pids[2], "date": d(9),  "points_completed": 20, "labor_hours": 520, "labor_rate": 40, "non_labor_cost": 4000,  "actual_cost": 24800, "total_estimated_effort": 240},
-            {"period_id": pids[3], "date": d(7),  "points_completed": 18, "labor_hours": 480, "labor_rate": 40, "non_labor_cost": 2000,  "actual_cost": 21200, "total_estimated_effort": 240},
-            {"period_id": pids[4], "date": d(5),  "points_completed": 22, "labor_hours": 500, "labor_rate": 40, "non_labor_cost": 3500,  "actual_cost": 23500, "total_estimated_effort": 240},
-            {"period_id": pids[5], "date": d(3),  "points_completed": 19, "labor_hours": 460, "labor_rate": 40, "non_labor_cost": 2000,  "actual_cost": 20400, "total_estimated_effort": 260},
+            {"period_id": pids[0], "date": d(13), "scope_delta":  0, "points_completed": 25, "labor_hours": 500, "labor_rate": 40, "non_labor_cost": 5000,  "actual_cost": 25000, "total_estimated_effort": 200},
+            {"period_id": pids[1], "date": d(11), "scope_delta":  0, "points_completed": 22, "labor_hours": 480, "labor_rate": 40, "non_labor_cost": 3000,  "actual_cost": 22200, "total_estimated_effort": 200},
+            {"period_id": pids[2], "date": d(9),  "scope_delta": 40, "points_completed": 20, "labor_hours": 520, "labor_rate": 40, "non_labor_cost": 4000,  "actual_cost": 24800, "total_estimated_effort": 240},
+            {"period_id": pids[3], "date": d(7),  "scope_delta":  0, "points_completed": 18, "labor_hours": 480, "labor_rate": 40, "non_labor_cost": 2000,  "actual_cost": 21200, "total_estimated_effort": 240},
+            {"period_id": pids[4], "date": d(5),  "scope_delta":  0, "points_completed": 22, "labor_hours": 500, "labor_rate": 40, "non_labor_cost": 3500,  "actual_cost": 23500, "total_estimated_effort": 240},
+            {"period_id": pids[5], "date": d(3),  "scope_delta": 20, "points_completed": 19, "labor_hours": 460, "labor_rate": 40, "non_labor_cost": 2000,  "actual_cost": 20400, "total_estimated_effort": 260},
         ]
     }
 
@@ -63,12 +59,14 @@ def save_projects(projects):
 
 
 def get_project(project_id):
-    """Load a project from file. Backfills period_ids for legacy data."""
     projects = load_projects()
     project = projects.get(project_id)
-    if project and _backfill_period_ids(project):
-        projects[project_id] = project
-        save_projects(projects)
+    if project:
+        changed = _backfill_period_ids(project)
+        changed = _backfill_scope_deltas(project) or changed
+        if changed:
+            projects[project_id] = project
+            save_projects(projects)
     return project
 
 
@@ -85,29 +83,58 @@ def delete_project(project_id):
 
 
 def ensure_demo_project():
-    """
-    Overwrites the canonical demo in the JSON file with fresh dates.
-    Each visitor's edits live in their session — the file is just the
-    pristine starting state used to seed new sessions.
-    """
     projects = load_projects()
     projects['demo'] = _build_demo_project()
     save_projects(projects)
 
 
 def get_canonical_demo():
-    """Returns a freshly computed demo project (no session overlay)."""
     return _build_demo_project()
 
 
+def recompute_scope(project):
+    """
+    After any scope_delta change, recompute total_estimated_effort for all periods
+    in chronological order: baseline + cumulative deltas.
+    Mutates project['periods'] in place.
+    """
+    baseline = project.get('baseline_scope', 0.0)
+    periods = sorted(project['periods'], key=lambda x: x['date'])
+    running = baseline
+    for p in periods:
+        running += p.get('scope_delta', 0.0)
+        p['total_estimated_effort'] = running
+
+
 def _backfill_period_ids(project):
-    """
-    Adds a period_id to any period that doesn't have one.
-    Returns True if any changes were made (so callers can decide to save).
-    """
     changed = False
     for p in project.get('periods', []):
         if 'period_id' not in p:
             p['period_id'] = str(uuid.uuid4())
             changed = True
+    return changed
+
+
+def _backfill_scope_deltas(project):
+    """
+    Derives scope_delta and baseline_scope for projects that predate this field.
+    baseline_scope = first period's total_estimated_effort.
+    scope_delta per period = difference from the previous period's total.
+    """
+    changed = False
+    periods = sorted(project.get('periods', []), key=lambda x: x['date'])
+    if not periods:
+        return changed
+
+    if 'baseline_scope' not in project:
+        project['baseline_scope'] = float(periods[0]['total_estimated_effort'])
+        changed = True
+
+    prev = project['baseline_scope']
+    for p in periods:
+        if 'scope_delta' not in p:
+            p['scope_delta'] = float(p['total_estimated_effort']) - prev
+            changed = True
+        prev = float(p['total_estimated_effort'])
+
     return changed

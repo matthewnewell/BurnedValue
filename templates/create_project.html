@@ -14,9 +14,25 @@
             <textarea name="description" rows="3" placeholder="Brief overview of project goals..."></textarea>
         </div>
 
-        <div class="form-group">
-            <label>Budget at Completion (BAC) $</label>
-            <input type="number" name="bac" required step="0.01" placeholder="100000">
+        <div class="row">
+            <div class="form-group">
+                <label>Contract Value ($)
+                    <span class="tooltip-wrapper">
+                        <span class="tooltip-icon">?</span>
+                        <span class="tooltip-text">The total value of the contract — what the client pays. Set this higher than your Budget to create a Management Reserve that covers risks like scope growth.</span>
+                    </span>
+                </label>
+                <input type="number" name="contract_value" step="0.01" placeholder="e.g. 275000">
+            </div>
+            <div class="form-group">
+                <label>Budget at Completion (BAC) ($)
+                    <span class="tooltip-wrapper">
+                        <span class="tooltip-icon">?</span>
+                        <span class="tooltip-text">Your planned spend. The gap between Contract Value and BAC is your Management Reserve — the buffer between a cost overrun and a contract breach.</span>
+                    </span>
+                </label>
+                <input type="number" name="bac" required step="0.01" placeholder="e.g. 250000">
+            </div>
         </div>
 
         <div class="row">

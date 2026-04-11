@@ -9,6 +9,14 @@ app = Flask(__name__)
 # Set SECRET_KEY env var in production. The default is fine for local dev.
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
 
+@app.template_filter('fmtdate')
+def fmtdate(value):
+    """Convert yyyy-mm-dd to mm-dd-yyyy for display."""
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').strftime('%m-%d-%Y')
+    except (ValueError, TypeError):
+        return value
+
 
 # ── Session-aware helpers for demo project ─────────────────────────────────────
 
@@ -59,10 +67,12 @@ def index():
 def create_project():
     if request.method == 'POST':
         project_id = str(uuid.uuid4())
+        cv_raw = request.form.get('contract_value', '').strip()
         data = {
             "id": project_id,
             "name": request.form['name'],
             "description": request.form.get('description', ''),
+            "contract_value": float(cv_raw) if cv_raw else None,
             "bac": float(request.form['bac']),
             "start_date": request.form['start_date'],
             "end_date": request.form['end_date'],
@@ -84,12 +94,17 @@ def dashboard(project_id):
     narrative = CalculationEngine.generate_narrative(project, periods, metrics)
     period_details = CalculationEngine.compute_period_details(project, periods)
 
+    baseline_scope = project.get('baseline_scope') or 0
+    scope_growth = round(metrics['total_scope'] - baseline_scope, 1) if metrics['total_scope'] else 0
+
     return render_template(
         'dashboard.html',
         project=project,
         metrics=metrics,
         narrative=narrative,
-        period_details=period_details
+        period_details=period_details,
+        baseline_scope=baseline_scope,
+        scope_growth=scope_growth
     )
 
 
@@ -100,9 +115,17 @@ def add_period(project_id):
         abort(404)
 
     if request.method == 'POST':
-        last_scope = project['periods'][-1]['total_estimated_effort'] if project['periods'] else 0
-        scope_input = request.form.get('total_scope')
-        total_scope = float(scope_input) if scope_input else last_scope
+        scope_delta = float(request.form.get('scope_delta', 0) or 0)
+
+        if not project['periods']:
+            # First period: the user enters the baseline directly
+            baseline = float(request.form.get('baseline_scope', 0) or 0)
+            project['baseline_scope'] = baseline
+            scope_delta = 0.0
+            total_scope = baseline
+        else:
+            prev_total = project['periods'][-1]['total_estimated_effort']
+            total_scope = prev_total + scope_delta
 
         period = Period(
             date=request.form['date'],
@@ -110,13 +133,27 @@ def add_period(project_id):
             labor_hours=float(request.form.get('labor_hours', 0)),
             labor_rate=float(request.form.get('labor_rate', 0)),
             non_labor_cost=float(request.form.get('non_labor', 0)),
-            total_scope=total_scope
+            total_scope=total_scope,
+            scope_delta=scope_delta
         )
         project['periods'].append(period.to_dict())
         save_project_for_request(project_id, project)
         return redirect(url_for('dashboard', project_id=project_id))
 
-    return render_template('entry.html', project=project)
+    # Compute context for the scope governance section
+    baseline_scope = project.get('baseline_scope')
+    has_periods = bool(project['periods'])
+    prior_growth = sum(p.get('scope_delta', 0) for p in project['periods'])
+    current_total = (baseline_scope or 0) + prior_growth
+
+    return render_template(
+        'entry.html',
+        project=project,
+        baseline_scope=baseline_scope,
+        has_periods=has_periods,
+        prior_growth=prior_growth,
+        current_total=current_total
+    )
 
 
 @app.route('/project/<project_id>/edit_period/<period_id>', methods=['GET', 'POST'])
@@ -125,34 +162,56 @@ def edit_period(project_id, period_id):
     if not project:
         abort(404)
 
-    # Find the period by its ID
     period_data = next((p for p in project['periods'] if p.get('period_id') == period_id), None)
     if not period_data:
         abort(404)
 
     if request.method == 'POST':
-        labor_hours = float(request.form.get('labor_hours', 0))
-        labor_rate  = float(request.form.get('labor_rate', 0))
-        non_labor   = float(request.form.get('non_labor', 0))
-        scope_input = request.form.get('total_scope')
+        scope_delta = float(request.form.get('scope_delta', 0) or 0)
 
-        # Preserve period_id through the edit
+        # Recompute total_scope for this period: baseline + sum of all other deltas + this delta
+        baseline = project.get('baseline_scope', 0.0)
+        other_deltas = sum(
+            p.get('scope_delta', 0) for p in project['periods']
+            if p.get('period_id') != period_id
+               and p['date'] <= period_data['date']   # only periods up to this one
+        )
+        total_scope = baseline + other_deltas + scope_delta
+
         updated = Period(
             date=request.form['date'],
             points_completed=float(request.form['points']),
-            labor_hours=labor_hours,
-            labor_rate=labor_rate,
-            non_labor_cost=non_labor,
-            total_scope=float(scope_input) if scope_input else period_data['total_estimated_effort'],
+            labor_hours=float(request.form.get('labor_hours', 0)),
+            labor_rate=float(request.form.get('labor_rate', 0)),
+            non_labor_cost=float(request.form.get('non_labor', 0)),
+            total_scope=total_scope,
+            scope_delta=scope_delta,
             period_id=period_id
         )
-        # Replace in-place so list order is preserved
         idx = next(i for i, p in enumerate(project['periods']) if p.get('period_id') == period_id)
         project['periods'][idx] = updated.to_dict()
+
+        # Recompute total_estimated_effort for all periods after a delta change
+        utils.recompute_scope(project)
         save_project_for_request(project_id, project)
         return redirect(url_for('dashboard', project_id=project_id))
 
-    return render_template('edit_period.html', project=project, period=period_data)
+    # Compute context for scope governance section
+    baseline_scope = project.get('baseline_scope', 0.0)
+    prior_growth = sum(
+        p.get('scope_delta', 0) for p in project['periods']
+        if p.get('period_id') != period_id
+    )
+    period_scope_delta = period_data.get('scope_delta', 0.0)
+
+    return render_template(
+        'edit_period.html',
+        project=project,
+        period=period_data,
+        baseline_scope=baseline_scope,
+        prior_growth=prior_growth,
+        period_scope_delta=period_scope_delta
+    )
 
 
 @app.route('/project/<project_id>/delete_period/<period_id>', methods=['POST'])

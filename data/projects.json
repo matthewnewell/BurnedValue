@@ -4,12 +4,16 @@
         "is_demo": true,
         "name": "Digital Transformation Initiative",
         "description": "Modernizing legacy billing infrastructure to cloud-native microservices. This demo shows what happens when scope is added without funding \u2014 Value Density dilutes and CPI craters.",
+        "contract_value": 275000.0,
         "bac": 250000.0,
-        "start_date": "2025-12-26",
-        "end_date": "2026-06-26",
+        "start_date": "2025-12-27",
+        "end_date": "2026-06-27",
+        "baseline_scope": 200.0,
         "periods": [
             {
-                "date": "2026-01-09",
+                "period_id": "demo-p1",
+                "date": "2026-01-10",
+                "scope_delta": 0,
                 "points_completed": 25,
                 "labor_hours": 500,
                 "labor_rate": 40,
@@ -18,7 +22,9 @@
                 "total_estimated_effort": 200
             },
             {
-                "date": "2026-01-23",
+                "period_id": "demo-p2",
+                "date": "2026-01-24",
+                "scope_delta": 0,
                 "points_completed": 22,
                 "labor_hours": 480,
                 "labor_rate": 40,
@@ -27,7 +33,9 @@
                 "total_estimated_effort": 200
             },
             {
-                "date": "2026-02-06",
+                "period_id": "demo-p3",
+                "date": "2026-02-07",
+                "scope_delta": 40,
                 "points_completed": 20,
                 "labor_hours": 520,
                 "labor_rate": 40,
@@ -36,7 +44,9 @@
                 "total_estimated_effort": 240
             },
             {
-                "date": "2026-02-20",
+                "period_id": "demo-p4",
+                "date": "2026-02-21",
+                "scope_delta": 0,
                 "points_completed": 18,
                 "labor_hours": 480,
                 "labor_rate": 40,
@@ -45,7 +55,9 @@
                 "total_estimated_effort": 240
             },
             {
-                "date": "2026-03-06",
+                "period_id": "demo-p5",
+                "date": "2026-03-07",
+                "scope_delta": 0,
                 "points_completed": 22,
                 "labor_hours": 500,
                 "labor_rate": 40,
@@ -54,7 +66,9 @@
                 "total_estimated_effort": 240
             },
             {
-                "date": "2026-03-20",
+                "period_id": "demo-p6",
+                "date": "2026-03-21",
+                "scope_delta": 20,
                 "points_completed": 19,
                 "labor_hours": 460,
                 "labor_rate": 40,

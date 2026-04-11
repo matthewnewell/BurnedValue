@@ -5,7 +5,7 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <div>
             <h2 style="margin: 0;">✏️ Edit Period</h2>
-            <div class="subtitle" style="margin-top: 4px;">{{ project.name }} — {{ period.date }}</div>
+            <div class="subtitle" style="margin-top: 4px;">{{ project.name }} — {{ period.date|fmtdate }}</div>
         </div>
         <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn btn-ghost-neutral">← Cancel</a>
     </div>
@@ -43,21 +43,49 @@
             <input type="number" id="odc" name="non_labor" step="0.01"
                    value="{{ period.non_labor_cost }}" placeholder="Materials, Licenses, etc.">
         </div>
-
         <div class="form-group">
             <label>Total Period Cost:</label>
-            <div id="total_cost_display" class="big-number">${{ "{:,.2f}".format(period.actual_cost) }}</div>
+            <div id="total_cost_display" class="big-number">
+                ${{ "{:,.2f}".format(period.actual_cost) }}
+            </div>
         </div>
 
         <h3>📉 Scope Governance</h3>
-        <div class="form-group warning-border">
-            <label>Total Estimated Effort (Points)</label>
-            <input type="number" name="total_scope" step="0.5"
-                   value="{{ period.total_estimated_effort }}">
-            <small>Increasing scope here will dilute Value Density.</small>
+        <div class="scope-grid">
+            <div class="scope-row-locked">
+                <span class="scope-label">Project Baseline</span>
+                <span class="scope-value-locked">{{ baseline_scope|int }}</span>
+                <span class="scope-unit">pts <span class="lock-icon">🔒</span></span>
+            </div>
+            <div class="scope-row-locked">
+                <span class="scope-label">Prior Scope Growth</span>
+                <span class="scope-value-locked {{ 'text-danger' if prior_growth > 0 }}">
+                    +{{ prior_growth|int }}
+                </span>
+                <span class="scope-unit">pts</span>
+            </div>
+            <div class="scope-row-input warning-border">
+                <span class="scope-label">New Scope Delta</span>
+                <input type="number" id="scope_delta" name="scope_delta"
+                       step="1" value="{{ period_scope_delta|int }}" min="0"
+                       style="width:100px; text-align:right;">
+                <span class="scope-unit">pts</span>
+            </div>
+            <div class="scope-divider"></div>
+            <div class="scope-row-total">
+                <span class="scope-label">Total Adjusted Scope</span>
+                <span id="total_scope_display" class="big-number" style="font-size:1.3rem;">
+                    {{ (baseline_scope + prior_growth + period_scope_delta)|int }}
+                </span>
+                <span class="scope-unit">pts</span>
+            </div>
         </div>
+        <small id="vd-warning" class="scope-warning"
+               style="display:{{ 'block' if period_scope_delta > 0 else 'none' }}">
+            ⚠️ Increasing scope here will dilute Value Density.
+        </small>
 
-        <div style="display: flex; gap: 12px; margin-top: 8px;">
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
             <button type="submit" class="btn primary">Save Changes</button>
             <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn btn-ghost-neutral">Cancel</a>
         </div>
@@ -67,10 +95,10 @@
 
     <div class="danger-zone">
         <h4>⚠️ Delete this period</h4>
-        <p>This removes the period from the ledger permanently. All cumulative metrics will be recalculated.</p>
+        <p>Removes this period from the ledger. All cumulative metrics will be recalculated.</p>
         <form method="POST"
               action="{{ url_for('delete_period', project_id=project.id, period_id=period.period_id) }}"
-              onsubmit="return confirm('Delete period {{ period.date }}? This cannot be undone.')">
+              onsubmit="return confirm('Delete period {{ period.date|fmtdate }}? This cannot be undone.')">
             <button type="submit" class="btn btn-danger">Delete Period</button>
         </form>
     </div>
@@ -80,16 +108,28 @@
     const h = document.getElementById('hours');
     const r = document.getElementById('rate');
     const o = document.getElementById('odc');
-    const display = document.getElementById('total_cost_display');
+    const costDisplay = document.getElementById('total_cost_display');
 
-    function recalc() {
-        const total = (parseFloat(h.value) || 0) * (parseFloat(r.value) || 0)
-                    + (parseFloat(o.value) || 0);
-        display.innerText = '$' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    function recalcCost() {
+        const total = (parseFloat(h.value)||0) * (parseFloat(r.value)||0)
+                    + (parseFloat(o.value)||0);
+        costDisplay.innerText = '$' + total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
     }
+    h.addEventListener('input', recalcCost);
+    r.addEventListener('input', recalcCost);
+    o.addEventListener('input', recalcCost);
 
-    h.addEventListener('input', recalc);
-    r.addEventListener('input', recalc);
-    o.addEventListener('input', recalc);
+    const deltaInput   = document.getElementById('scope_delta');
+    const scopeDisplay = document.getElementById('total_scope_display');
+    const vdWarning    = document.getElementById('vd-warning');
+    const baseline     = {{ baseline_scope }};
+    const priorGrowth  = {{ prior_growth }};
+
+    deltaInput.addEventListener('input', function() {
+        const delta = parseFloat(this.value) || 0;
+        const total = baseline + priorGrowth + delta;
+        scopeDisplay.innerText = Math.round(total).toLocaleString('en-US');
+        vdWarning.style.display = delta > 0 ? 'block' : 'none';
+    });
 </script>
 {% endblock %}

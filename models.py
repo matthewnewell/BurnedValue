@@ -62,8 +62,8 @@ class CalculationEngine:
             "ev": round(ev, 2),
             "ac": round(total_ac, 2),
             "pv": round(pv, 2),
-            "cpi": round(cpi, 3),
-            "spi": round(spi, 3),
+            "cpi": round(cpi, 2),
+            "spi": round(spi, 2),
             "eac": round(eac, 2),
             "bac": project['bac'],
             "value_density": round(value_density, 2),
@@ -93,7 +93,7 @@ class CalculationEngine:
 
             percent = cum_points / scope
             ev = percent * project['bac']
-            cpi = round(ev / cum_ac, 3) if cum_ac > 0 else 0
+            cpi = round(ev / cum_ac, 2) if cum_ac > 0 else 0
             value_density = round(project['bac'] / scope, 2)
 
             scope_delta = 0
@@ -209,7 +209,7 @@ class Project:
 
 class Period:
     def __init__(self, date, points_completed, labor_hours=0, labor_rate=0,
-                 non_labor_cost=0, total_scope=0, period_id=None):
+                 non_labor_cost=0, total_scope=0, scope_delta=0, period_id=None):
         import uuid
         self.period_id = period_id or str(uuid.uuid4())
         self.date = date
@@ -217,6 +217,7 @@ class Period:
         self.labor_hours = float(labor_hours)
         self.labor_rate = float(labor_rate)
         self.non_labor_cost = float(non_labor_cost)
+        self.scope_delta = float(scope_delta)
         self.total_estimated_effort = float(total_scope)
         self.actual_cost = (self.labor_hours * self.labor_rate) + self.non_labor_cost
 
@@ -229,5 +230,6 @@ class Period:
             "labor_rate": self.labor_rate,
             "non_labor_cost": self.non_labor_cost,
             "actual_cost": self.actual_cost,
+            "scope_delta": self.scope_delta,
             "total_estimated_effort": self.total_estimated_effort
         }

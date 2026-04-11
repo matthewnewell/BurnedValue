@@ -35,7 +35,7 @@
 
         <div class="project-meta">
             <span>Budget: <strong>${{ "{:,.0f}".format(project.bac) }}</strong></span>
-            <span>{{ project.start_date }} → {{ project.end_date }}</span>
+            <span>{{ project.start_date|fmtdate }} → {{ project.end_date|fmtdate }}</span>
             {% if project.metrics.percent_complete > 0 %}
             <span>{{ project.metrics.percent_complete }}% complete</span>
             {% endif %}
