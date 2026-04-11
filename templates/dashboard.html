@@ -79,7 +79,7 @@
 {# ── KPI Cards ── #}
 <div class="kpi-grid">
 
-    <div class="card kpi {{ 'danger' if metrics.cpi > 0 and metrics.cpi < 1 else ('success' if metrics.cpi >= 1 else '') }}">
+    <div class="card kpi {{ 'danger' if metrics.cpi > 0 and metrics.cpi < 0.95 else ('warning' if metrics.cpi >= 0.95 and metrics.cpi < 1 else ('success' if metrics.cpi >= 1 else '')) }}">
         <label>
             CPI
             <span class="tooltip-wrapper">
@@ -106,7 +106,7 @@
         </div>
     </div>
 
-    <div class="card kpi {{ 'danger' if metrics.spi > 0 and metrics.spi < 1 else ('success' if metrics.spi >= 1 else '') }}">
+    <div class="card kpi {{ 'danger' if metrics.spi > 0 and metrics.spi < 0.95 else ('warning' if metrics.spi >= 0.95 and metrics.spi < 1 else ('success' if metrics.spi >= 1 else '')) }}">
         <label>
             SPI
             <span class="tooltip-wrapper">

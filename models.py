@@ -12,6 +12,8 @@ class CalculationEngine:
                 "cpi": 0, "spi": 0, "eac": 0,
                 "bac": project['bac'],
                 "value_density": 0,
+                "actual_cost_per_point": 0,
+                "avg_velocity": 0,
                 "percent_complete": 0,
                 "total_points": 0,
                 "total_scope": 0

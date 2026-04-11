@@ -20,13 +20,18 @@
                 <span class="badge badge-demo">DEMO</span>
                 {% endif %}
             </div>
-            {% if project.metrics.cpi > 0 %}
-                <span class="badge {{ 'badge-success' if project.metrics.cpi >= 1.0 else ('badge-warning' if project.metrics.cpi >= 0.9 else 'badge-danger') }}">
-                    CPI {{ project.metrics.cpi }}
-                </span>
-            {% else %}
-                <span class="badge badge-neutral">No Data</span>
-            {% endif %}
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                {% if project.metrics.cpi > 0 %}
+                    <span class="badge {{ 'badge-success' if project.metrics.cpi >= 1.0 else ('badge-warning' if project.metrics.cpi >= 0.95 else 'badge-danger') }}">
+                        CPI {{ project.metrics.cpi }}
+                    </span>
+                    <span class="badge {{ 'badge-success' if project.metrics.spi >= 1.0 else ('badge-warning' if project.metrics.spi >= 0.95 else 'badge-danger') }}">
+                        SPI {{ project.metrics.spi }}
+                    </span>
+                {% else %}
+                    <span class="badge badge-neutral">No Data</span>
+                {% endif %}
+            </div>
         </div>
 
         {% if project.description %}
@@ -34,16 +39,29 @@
         {% endif %}
 
         <div class="project-meta">
-            <span>Budget: <strong>${{ "{:,.0f}".format(project.bac) }}</strong></span>
-            <span>{{ project.start_date|fmtdate }} → {{ project.end_date|fmtdate }}</span>
-            {% if project.metrics.percent_complete > 0 %}
-            <span>{{ project.metrics.percent_complete }}% complete</span>
+            {% if project.contract_value %}
+            <span>Contract Value: <strong>${{ "{:,.0f}".format(project.contract_value) }}</strong></span>
             {% endif %}
+        </div>
+        <div class="project-meta" style="margin-top: 2px;">
+            <span>BAC (Baseline): <strong>${{ "{:,.0f}".format(project.bac) }}</strong></span>
+        </div>
+        {% if project.metrics.eac > 0 %}
+        <div class="project-meta" style="margin-top: 2px;">
+            <span>EAC (Current): <strong class="{{ 'text-danger' if project.metrics.eac > (project.contract_value or project.bac) else ('text-warning' if project.metrics.eac > project.bac else 'text-success') }}">${{ "{:,.0f}".format(project.metrics.eac) }}</strong></span>
+        </div>
+        {% endif %}
+
+        <div class="project-meta" style="margin-top: 4px;">
+            <span>PoP: <strong>{{ project.start_date|fmtdate }} → {{ project.end_date|fmtdate }}</strong></span>
         </div>
 
         {% if project.metrics.cpi > 0 %}
+        <div class="project-meta" style="margin-top: 6px;">
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ project.metrics.percent_complete }}% complete</span>
+        </div>
         <div class="progress-bar-wrap">
-            <div class="progress-bar-fill {{ 'fill-danger' if project.metrics.cpi < 0.9 else ('fill-warning' if project.metrics.cpi < 1.0 else 'fill-success') }}"
+            <div class="progress-bar-fill {{ 'fill-danger' if project.metrics.cpi < 0.95 else ('fill-warning' if project.metrics.cpi < 1.0 else 'fill-success') }}"
                  style="width: {{ [project.metrics.percent_complete, 100] | min }}%"></div>
         </div>
         {% endif %}
