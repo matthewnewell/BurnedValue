@@ -10,34 +10,44 @@ _DEMO_PERIOD_IDS = [f"demo-p{i}" for i in range(1, 10)]
 
 def _build_demo_project():
     today = datetime.now().date()
-    start = today - timedelta(weeks=15)
-    end   = today + timedelta(weeks=11)
+    year  = today.year
+    start = datetime(year, 2, 1).date()
+    end   = datetime(year, 7, 4).date()
 
-    def d(weeks_ago):
-        return (today - timedelta(weeks=weeks_ago)).isoformat()
+    def d(weeks_from_start):
+        return (start + timedelta(weeks=weeks_from_start)).isoformat()
 
     pids = _DEMO_PERIOD_IDS
     return {
         "id": "demo",
         "is_demo": True,
+        "_seed_version": 3,
         "name": "Digital Transformation Initiative",
         "description": (
             "Modernizing legacy billing infrastructure to cloud-native microservices. "
-            "This demo shows what happens when scope is added without funding — "
-            "Value Density dilutes and CPI craters."
+            "The project launched strong — team was efficient, costs well under budget. "
+            "Then scope was added twice without funding. "
+            "Value Density diluted, CPI cratered, and the Estimate at Completion now exceeds the Contract Value. "
+            "This is what unfunded scope creep looks like."
         ),
-        "contract_value": 275000.0,
+        "contract_value": 262000.0,
         "bac": 250000.0,
         "start_date": start.isoformat(),
         "end_date":   end.isoformat(),
+        "interval_unit": "weeks",
+        "interval_size": 2,
         "baseline_scope": 200.0,
         "periods": [
-            {"period_id": pids[0], "date": d(13), "scope_delta":  0, "points_completed": 25, "labor_hours": 500, "labor_rate": 40, "non_labor_cost": 5000,  "actual_cost": 25000, "total_estimated_effort": 200},
-            {"period_id": pids[1], "date": d(11), "scope_delta":  0, "points_completed": 22, "labor_hours": 480, "labor_rate": 40, "non_labor_cost": 3000,  "actual_cost": 22200, "total_estimated_effort": 200},
-            {"period_id": pids[2], "date": d(9),  "scope_delta": 40, "points_completed": 20, "labor_hours": 520, "labor_rate": 40, "non_labor_cost": 4000,  "actual_cost": 24800, "total_estimated_effort": 240},
-            {"period_id": pids[3], "date": d(7),  "scope_delta":  0, "points_completed": 18, "labor_hours": 480, "labor_rate": 40, "non_labor_cost": 2000,  "actual_cost": 21200, "total_estimated_effort": 240},
-            {"period_id": pids[4], "date": d(5),  "scope_delta":  0, "points_completed": 22, "labor_hours": 500, "labor_rate": 40, "non_labor_cost": 3500,  "actual_cost": 23500, "total_estimated_effort": 240},
-            {"period_id": pids[5], "date": d(3),  "scope_delta": 20, "points_completed": 19, "labor_hours": 460, "labor_rate": 40, "non_labor_cost": 2000,  "actual_cost": 20400, "total_estimated_effort": 260},
+            # Strong start — AC well below EV, team is efficient
+            {"period_id": pids[0], "date": d(2),  "scope_delta":  0, "points_completed": 28, "labor_hours": 400, "labor_rate": 40, "non_labor_cost":  4000, "actual_cost": 20000, "total_estimated_effort": 200},
+            {"period_id": pids[1], "date": d(4),  "scope_delta":  0, "points_completed": 25, "labor_hours": 380, "labor_rate": 40, "non_labor_cost":  3800, "actual_cost": 19000, "total_estimated_effort": 200},
+            # Scope creep +40 — costs spike, velocity drops, lines begin to cross
+            {"period_id": pids[2], "date": d(6),  "scope_delta": 40, "points_completed": 20, "labor_hours": 520, "labor_rate": 40, "non_labor_cost":  7200, "actual_cost": 28000, "total_estimated_effort": 240},
+            # AC now above EV and diverging
+            {"period_id": pids[3], "date": d(8),  "scope_delta":  0, "points_completed": 18, "labor_hours": 500, "labor_rate": 40, "non_labor_cost":  6000, "actual_cost": 26000, "total_estimated_effort": 240},
+            {"period_id": pids[4], "date": d(10), "scope_delta":  0, "points_completed": 19, "labor_hours": 520, "labor_rate": 40, "non_labor_cost":  6200, "actual_cost": 27000, "total_estimated_effort": 240},
+            # Second scope hit +20 — gap widens further, EAC now exceeds contract value
+            {"period_id": pids[5], "date": d(12), "scope_delta": 20, "points_completed": 17, "labor_hours": 480, "labor_rate": 40, "non_labor_cost":  5800, "actual_cost": 25000, "total_estimated_effort": 260},
         ]
     }
 
@@ -90,6 +100,45 @@ def ensure_demo_project():
 
 def get_canonical_demo():
     return _build_demo_project()
+
+
+def generate_intervals(project):
+    """
+    Returns a list of interval end-date strings (ISO) from project start to
+    whichever comes first: project end date or today + one interval (so the
+    next upcoming interval is always visible).
+
+    Each entry: { 'date': 'yyyy-mm-dd', 'label': 'Interval N' }
+    """
+    try:
+        start = datetime.strptime(project['start_date'], '%Y-%m-%d')
+        end   = datetime.strptime(project['end_date'],   '%Y-%m-%d')
+    except (ValueError, KeyError):
+        return []
+
+    unit = project.get('interval_unit', 'weeks')
+    size = int(project.get('interval_size', 2))
+
+    def step_fn(base, n):
+        if unit == 'months':
+            total_months = base.month - 1 + size * n
+            year  = base.year + total_months // 12
+            month = total_months % 12 + 1
+            import calendar
+            day = min(base.day, calendar.monthrange(year, month)[1])
+            return base.replace(year=year, month=month, day=day)
+        days = size * 7 if unit == 'weeks' else size
+        return base + timedelta(days=days * n)
+
+    intervals = []
+    n = 1
+    current = step_fn(start, n)
+    while current <= end:
+        intervals.append({'date': current.strftime('%Y-%m-%d'), 'label': f'Interval {n}'})
+        n += 1
+        current = step_fn(start, n)
+
+    return intervals
 
 
 def recompute_scope(project):

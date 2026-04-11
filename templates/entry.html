@@ -6,7 +6,7 @@
     <form action="{{ url_for('add_period', project_id=project.id) }}" method="POST">
         <div class="form-group">
             <label>Period Ending Date</label>
-            <input type="date" name="date" required>
+            <input type="date" name="date" required value="{{ prefill_date }}">
         </div>
 
         <h3>🔥 Velocity</h3>

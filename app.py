@@ -23,25 +23,38 @@ def fmtdate(value):
 def get_project_for_request(project_id):
     """
     For real projects: load from file.
-    For the demo: start from the canonical seed, then overlay any edits
-    the current visitor has made (stored in their session cookie).
+    For the demo: start from the canonical seed, then overlay any fields
+    the current visitor has edited (stored in their session cookie).
     """
     if project_id == 'demo':
         project = utils.get_canonical_demo()
-        if 'demo_periods' in session:
-            project['periods'] = session['demo_periods']
+        overrides = session.get('demo_overrides', {})
+        # Invalidate stale session overrides when the seed version changes
+        if overrides.get('_seed_version') != project.get('_seed_version'):
+            session.pop('demo_overrides', None)
+            overrides = {}
+        project.update(overrides)
         return project
     return utils.get_project(project_id)
 
 
+# Fields that visitors are allowed to override on the demo project
+_DEMO_MUTABLE_FIELDS = [
+    'name', 'description', 'contract_value', 'bac',
+    'start_date', 'end_date', 'interval_unit', 'interval_size',
+    'baseline_scope', 'periods'
+]
+
 def save_project_for_request(project_id, project):
     """
     For real projects: write to file.
-    For the demo: store only the periods list in the session cookie.
-    The base project structure is always rebuilt from the canonical seed.
+    For the demo: store only the mutable fields in the session cookie so
+    the canonical seed is never touched and other visitors are unaffected.
     """
     if project_id == 'demo':
-        session['demo_periods'] = project['periods']
+        overrides = {k: project[k] for k in _DEMO_MUTABLE_FIELDS if k in project}
+        overrides['_seed_version'] = project.get('_seed_version')
+        session['demo_overrides'] = overrides
         session.modified = True
     else:
         utils.save_project_data(project_id, project)
@@ -76,11 +89,35 @@ def create_project():
             "bac": float(request.form['bac']),
             "start_date": request.form['start_date'],
             "end_date": request.form['end_date'],
+            "interval_unit": request.form.get('interval_unit', 'weeks'),
+            "interval_size": int(request.form.get('interval_size', 2)),
             "periods": []
         }
         utils.save_project_data(project_id, data)
         return redirect(url_for('dashboard', project_id=project_id))
     return render_template('create_project.html')
+
+
+@app.route('/project/<project_id>/update', methods=['GET', 'POST'])
+def update_project(project_id):
+    project = get_project_for_request(project_id)
+    if not project:
+        abort(404)
+
+    if request.method == 'POST':
+        cv_raw = request.form.get('contract_value', '').strip()
+        project['name']           = request.form['name']
+        project['description']    = request.form.get('description', '')
+        project['contract_value'] = float(cv_raw) if cv_raw else None
+        project['bac']            = float(request.form['bac'])
+        project['start_date']     = request.form['start_date']
+        project['end_date']       = request.form['end_date']
+        # interval_unit and interval_size are intentionally not updated here —
+        # changing cadence after data exists would misalign period records
+        save_project_for_request(project_id, project)
+        return redirect(url_for('dashboard', project_id=project_id))
+
+    return render_template('update_project.html', project=project)
 
 
 @app.route('/dashboard/<project_id>')
@@ -97,6 +134,12 @@ def dashboard(project_id):
     baseline_scope = project.get('baseline_scope') or 0
     scope_growth = round(metrics['total_scope'] - baseline_scope, 1) if metrics['total_scope'] else 0
 
+    # Build interval list and annotate each with matching period data (if any)
+    intervals = utils.generate_intervals(project)
+    periods_by_date = {p['date']: p for p in periods}
+    for iv in intervals:
+        iv['period'] = periods_by_date.get(iv['date'])
+
     return render_template(
         'dashboard.html',
         project=project,
@@ -104,7 +147,8 @@ def dashboard(project_id):
         narrative=narrative,
         period_details=period_details,
         baseline_scope=baseline_scope,
-        scope_growth=scope_growth
+        scope_growth=scope_growth,
+        intervals=intervals
     )
 
 
@@ -146,13 +190,16 @@ def add_period(project_id):
     prior_growth = sum(p.get('scope_delta', 0) for p in project['periods'])
     current_total = (baseline_scope or 0) + prior_growth
 
+    prefill_date = request.args.get('date', '')
+
     return render_template(
         'entry.html',
         project=project,
         baseline_scope=baseline_scope,
         has_periods=has_periods,
         prior_growth=prior_growth,
-        current_total=current_total
+        current_total=current_total,
+        prefill_date=prefill_date
     )
 
 
@@ -227,7 +274,7 @@ def delete_period(project_id, period_id):
 @app.route('/demo/reset', methods=['POST'])
 def reset_demo():
     """Clear this visitor's session edits, restoring the demo to its initial state."""
-    session.pop('demo_periods', None)
+    session.pop('demo_overrides', None)
     session.modified = True
     return redirect(url_for('dashboard', project_id='demo'))
 

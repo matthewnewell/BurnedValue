@@ -1,0 +1,88 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="card form-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+            <h2 style="margin: 0;">⚙️ Update Project</h2>
+            <div class="subtitle" style="margin-top: 4px;">{{ project.name }}</div>
+        </div>
+        <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn btn-ghost-neutral">← Cancel</a>
+    </div>
+
+    <form action="{{ url_for('update_project', project_id=project.id) }}" method="POST">
+
+        <h3>📋 Project Details</h3>
+        <div class="form-group">
+            <label>Project Name</label>
+            <input type="text" name="name" required value="{{ project.name }}">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" rows="3">{{ project.description }}</textarea>
+        </div>
+
+        <h3>💰 Financials</h3>
+        <div class="row">
+            <div class="form-group">
+                <label>Contract Value ($)
+                    <span class="tooltip-wrapper">
+                        <span class="tooltip-icon">?</span>
+                        <span class="tooltip-text">Total contract ceiling. The gap between Contract Value and BAC is your Management Reserve.</span>
+                    </span>
+                </label>
+                <input type="text" class="currency-input" name="contract_value" inputmode="numeric"
+                       value="{{ '{:,.0f}'.format(project.contract_value) if project.contract_value else '' }}"
+                       placeholder="Optional">
+            </div>
+            <div class="form-group">
+                <label>Budget at Completion (BAC) ($)</label>
+                <input type="text" class="currency-input" name="bac" inputmode="numeric" required
+                       value="{{ '{:,.0f}'.format(project.bac) }}">
+            </div>
+        </div>
+
+        <h3>📅 Period of Performance</h3>
+        <div class="row">
+            <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" name="start_date" required value="{{ project.start_date }}">
+            </div>
+            <div class="form-group">
+                <label>End Date</label>
+                <input type="date" name="end_date" required value="{{ project.end_date }}">
+            </div>
+        </div>
+
+        <h3>🔄 Intervals</h3>
+        <div class="locked-notice">
+            <span>🔒</span>
+            <span>
+                Interval cadence is locked once a project is created — changing it would misalign existing period data.
+                Currently set to every <strong>{{ project.get('interval_size', 2) }} {{ project.get('interval_unit', 'weeks') }}</strong>.
+            </span>
+        </div>
+
+        <button type="submit" class="btn primary" style="margin-top: 8px;">Save Changes</button>
+    </form>
+</div>
+
+<script>
+    document.querySelectorAll('.currency-input').forEach(input => {
+        input.addEventListener('input', function() {
+            const raw = this.value.replace(/[^0-9]/g, '');
+            this.value = raw ? parseInt(raw).toLocaleString('en-US') : '';
+        });
+        input.addEventListener('blur', function() {
+            const raw = this.value.replace(/[^0-9]/g, '');
+            this.value = raw ? parseInt(raw).toLocaleString('en-US') : '';
+        });
+    });
+
+    document.querySelector('form').addEventListener('submit', function() {
+        document.querySelectorAll('.currency-input').forEach(input => {
+            input.value = input.value.replace(/,/g, '');
+        });
+    });
+</script>
+{% endblock %}

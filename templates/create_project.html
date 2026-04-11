@@ -4,16 +4,18 @@
 <div class="card form-card">
     <h2>🚀 Start New Project</h2>
     <form action="{{ url_for('create_project') }}" method="POST">
+
+        <h3>📋 Project Details</h3>
         <div class="form-group">
             <label>Project Name</label>
             <input type="text" name="name" required placeholder="e.g. Phoenix Protocol">
         </div>
-
         <div class="form-group">
             <label>Description</label>
             <textarea name="description" rows="3" placeholder="Brief overview of project goals..."></textarea>
         </div>
 
+        <h3>💰 Financials</h3>
         <div class="row">
             <div class="form-group">
                 <label>Contract Value ($)
@@ -22,19 +24,20 @@
                         <span class="tooltip-text">The total value of the contract — what the client pays. Set this higher than your Budget to create a Management Reserve that covers risks like scope growth.</span>
                     </span>
                 </label>
-                <input type="number" name="contract_value" step="0.01" placeholder="e.g. 275000">
+                <input type="text" class="currency-input" name="contract_value" inputmode="numeric" placeholder="Optional">
             </div>
             <div class="form-group">
                 <label>Budget at Completion (BAC) ($)
                     <span class="tooltip-wrapper">
                         <span class="tooltip-icon">?</span>
-                        <span class="tooltip-text">Your planned spend. The gap between Contract Value and BAC is your Management Reserve — the buffer between a cost overrun and a contract breach.</span>
+                        <span class="tooltip-text">Your planned spend. The gap between Contract Value and BAC is your Management Reserve.</span>
                     </span>
                 </label>
-                <input type="number" name="bac" required step="0.01" placeholder="e.g. 250000">
+                <input type="text" class="currency-input" name="bac" inputmode="numeric" required placeholder="e.g. 250,000">
             </div>
         </div>
 
+        <h3>📅 Period of Performance</h3>
         <div class="row">
             <div class="form-group">
                 <label>Start Date</label>
@@ -46,7 +49,80 @@
             </div>
         </div>
 
+        <h3>🔄 Intervals</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 8px 0;">
+            Intervals define your reporting cadence — how often you record actuals and velocity.
+            If you run sprints, aligning them with your reporting intervals keeps the data clean.
+            If not, pick whatever period makes sense: weekly, biweekly, monthly.
+        </p>
+        <div class="locked-notice" style="margin-bottom: 16px;">
+            <span>⚠️</span>
+            <span>This setting is permanent. Interval cadence cannot be changed after the project is created — doing so would misalign existing period data.</span>
+        </div>
+        <div class="row" style="align-items: flex-end;">
+            <div class="form-group">
+                <label>Interval Length</label>
+                <input type="number" name="interval_size" min="1" step="1" value="2"
+                       required style="width: 80px;">
+            </div>
+            <div class="form-group">
+                <label>Unit</label>
+                <div class="toggle-group">
+                    <label class="toggle-option">
+                        <input type="radio" name="interval_unit" value="days">
+                        <span>Days</span>
+                    </label>
+                    <label class="toggle-option">
+                        <input type="radio" name="interval_unit" value="weeks" checked>
+                        <span>Weeks</span>
+                    </label>
+                    <label class="toggle-option">
+                        <input type="radio" name="interval_unit" value="months">
+                        <span>Months</span>
+                    </label>
+                </div>
+            </div>
+            <div class="form-group" style="padding-bottom: 16px;">
+                <span id="interval-preview" class="subtitle">→ one interval every 2 weeks</span>
+            </div>
+        </div>
+
         <button type="submit" class="btn primary">Initialize Governance</button>
     </form>
 </div>
+
+<script>
+    // Currency inputs: format with commas on display, strip before submit
+    document.querySelectorAll('.currency-input').forEach(input => {
+        input.addEventListener('input', function() {
+            const raw = this.value.replace(/[^0-9]/g, '');
+            this.value = raw ? parseInt(raw).toLocaleString('en-US') : '';
+        });
+        input.addEventListener('blur', function() {
+            const raw = this.value.replace(/[^0-9]/g, '');
+            this.value = raw ? parseInt(raw).toLocaleString('en-US') : '';
+        });
+    });
+
+    document.querySelector('form').addEventListener('submit', function() {
+        document.querySelectorAll('.currency-input').forEach(input => {
+            input.value = input.value.replace(/,/g, '');
+        });
+    });
+
+    const sizeInput  = document.querySelector('input[name="interval_size"]');
+    const unitInputs = document.querySelectorAll('input[name="interval_unit"]');
+    const preview    = document.getElementById('interval-preview');
+
+    function updatePreview() {
+        const size = parseInt(sizeInput.value) || 0;
+        const unit = document.querySelector('input[name="interval_unit"]:checked')?.value || 'weeks';
+        if (size > 0) {
+            preview.textContent = `→ one interval every ${size} ${size === 1 ? unit.slice(0,-1) : unit}`;
+        }
+    }
+
+    sizeInput.addEventListener('input', updatePreview);
+    unitInputs.forEach(r => r.addEventListener('change', updatePreview));
+</script>
 {% endblock %}

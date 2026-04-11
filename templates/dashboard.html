@@ -42,7 +42,7 @@
             <button type="submit" class="btn btn-ghost-neutral" title="Restore demo to its original state">↺ Reset Demo</button>
         </form>
         {% endif %}
-        <a href="{{ url_for('add_period', project_id=project.id) }}" class="btn primary">+ Update Burn</a>
+        <a href="{{ url_for('update_project', project_id=project.id) }}" class="btn primary">⚙️ Update Project</a>
     </div>
 </div>
 
@@ -76,7 +76,7 @@
 
     <div class="card kpi {{ 'danger' if metrics.cpi > 0 and metrics.cpi < 1 else ('success' if metrics.cpi >= 1 else '') }}">
         <label>
-            CPI
+            Cost Performance Index (CPI)
             <span class="tooltip-wrapper">
                 <span class="tooltip-icon">?</span>
                 <span class="tooltip-text">
@@ -95,7 +95,7 @@
 
     <div class="card kpi {{ 'danger' if metrics.spi > 0 and metrics.spi < 1 else ('success' if metrics.spi >= 1 else '') }}">
         <label>
-            SPI
+            Schedule Performance Index (SPI)
             <span class="tooltip-wrapper">
                 <span class="tooltip-icon">?</span>
                 <span class="tooltip-text">
@@ -113,7 +113,7 @@
 
     <div class="card kpi">
         <label>
-            Value Density
+            Value Density (VD)
             <span class="tooltip-wrapper">
                 <span class="tooltip-icon">?</span>
                 <span class="tooltip-text">
@@ -130,7 +130,7 @@
 
     <div class="card kpi">
         <label>
-            Earned Value
+            Earned Value (EV)
             <span class="tooltip-wrapper">
                 <span class="tooltip-icon">?</span>
                 <span class="tooltip-text">
@@ -146,7 +146,7 @@
 
     <div class="card kpi {{ 'danger' if metrics.eac > metrics.bac else 'success' }}">
         <label>
-            EAC
+            Estimate at Completion (EAC)
             <span class="tooltip-wrapper">
                 <span class="tooltip-icon">?</span>
                 <span class="tooltip-text">
@@ -174,12 +174,14 @@
     <div class="card chart-container">
         <h3>💰 EVMS — Cost &amp; Schedule Performance</h3>
         <p class="chart-caption">EV above AC = under budget. EV below AC = over budget. PV is the plan. The gap widens when scope creep hits.</p>
+        <div id="evmsLegend" class="html-legend"></div>
         <canvas id="evmsChart"></canvas>
     </div>
 
     <div class="card chart-container">
         <h3>🔥 Release Burndown</h3>
-        <p class="chart-caption">Red line = remaining scope. Upward jumps are scope creep events. Bars show per-period velocity. Ideal line assumes constant pace from day one.</p>
+        <p class="chart-caption">Orange line = remaining scope. Upward jumps are scope creep events. Bars show per-period velocity. Ideal line assumes constant pace from day one.</p>
+        <div id="burndownLegend" class="html-legend"></div>
         <canvas id="burndownChart"></canvas>
     </div>
 </div>
@@ -187,30 +189,39 @@
 <div class="charts-grid" style="margin-top: 20px;">
     <div class="card chart-container">
         <h3>💎 Value Density — The False Hope</h3>
-        <p class="chart-caption">Amber (stepped) is what each point <em>should</em> cost at budget. Red is what it <em>does</em> cost. When the red line stays flat while amber steps down, the team's velocity is fixed — scope creep doesn't create capacity, it just guarantees overrun.</p>
+        <p class="chart-caption">Each bar is the estimated cost per point at the current budget — it steps down every time scope is added without funding. The teal line is what each point actually costs. When the line rises above a bar, that period is in overrun. Team velocity is grounded in past performance and cannot be willed higher. Adding scope without funding means the same dollars must cover more work — the result is a cost overrun, a schedule slip, or both.</p>
+        <div id="vdLegend" class="html-legend"></div>
         <canvas id="vdChart"></canvas>
     </div>
 
     <div class="card chart-container">
         <h3>📈 Performance Indices — CPI &amp; SPI</h3>
         <p class="chart-caption">Both indices target ≥ 1.0. A sustained CPI below the line means the project will overrun at completion — the EAC card above tells you by how much.</p>
+        <div id="cpiSpiLegend" class="html-legend"></div>
         <canvas id="cpiSpiChart"></canvas>
     </div>
 </div>
 
-{# ── Period History Table ── #}
-{% if period_details %}
+{# ── Intervals ── #}
 <div class="card" style="margin-top: 20px;">
-    <h3>📋 Period Ledger</h3>
-    <p class="chart-caption">Rows highlighted in red indicate a scope change event — the moment Value Density was diluted.</p>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <h3 style="margin: 0;">🗓️ Intervals</h3>
+        <span class="subtitle">
+            Every {{ project.get('interval_size', 2) }} {{ project.get('interval_unit', 'weeks') }}
+        </span>
+    </div>
+    <p class="chart-caption">Scope creep rows highlighted in red. Click <strong>Enter Data</strong> on any pending interval or <strong>Edit</strong> to revise existing data.</p>
+
+    {% if intervals %}
     <div class="table-scroll">
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>Date</th>
-                    <th>Period Pts</th>
-                    <th>Cum. Pts</th>
-                    <th>Total Scope</th>
+                    <th>Interval</th>
+                    <th>End Date</th>
+                    <th>Status</th>
+                    <th>Velocity</th>
+                    <th>Scope Delta</th>
                     <th>Value Density</th>
                     <th>Period AC</th>
                     <th>Cum. AC</th>
@@ -220,47 +231,65 @@
                 </tr>
             </thead>
             <tbody>
-                {% for row in period_details %}
-                <tr class="{{ 'scope-creep-row' if row.scope_changed }}">
-                    <td>
-                        {{ row.date|fmtdate }}
-                        {% if row.scope_changed %}
-                        <span class="scope-tag">⚠️ +{{ row.scope_delta }} pts</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ row.period_points }}</td>
-                    <td>{{ row.cum_points }}</td>
-                    <td>{{ row.scope }}</td>
-                    <td>${{ "{:,.2f}".format(row.value_density) }}</td>
-                    <td>${{ "{:,.0f}".format(row.period_ac) }}</td>
-                    <td>${{ "{:,.0f}".format(row.cum_ac) }}</td>
-                    <td>${{ "{:,.0f}".format(row.ev) }}</td>
-                    <td class="{{ 'text-danger' if row.cpi < 1 else 'text-success' }}">{{ row.cpi }}</td>
-                    <td>
-                        <a href="{{ url_for('edit_period', project_id=project.id, period_id=row.period_id) }}"
-                           class="edit-period-btn">Edit</a>
-                    </td>
-                </tr>
+                {% for iv in intervals %}
+                    {% set row = period_details | selectattr('date', 'equalto', iv.date) | first | default(none) %}
+                    <tr class="{{ 'scope-creep-row' if row and row.scope_changed }}">
+                        <td>{{ iv.label }}</td>
+                        <td>
+                            {{ iv.date|fmtdate }}
+                            {% if row and row.scope_changed %}
+                            <span class="scope-tag">⚠️ +{{ row.scope_delta|int }} pts</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row %}
+                            <span class="badge badge-success">Data Entered</span>
+                            {% else %}
+                            <span class="badge badge-neutral">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.period_points|int if row else '—' }}</td>
+                        <td>{{ ('+' ~ row.scope_delta|int) if row and row.scope_delta > 0 else ('—' if not row else '0') }}</td>
+                        <td>{{ ('$' ~ '{:,.2f}'.format(row.value_density)) if row else '—' }}</td>
+                        <td>{{ ('$' ~ '{:,.0f}'.format(row.period_ac)) if row else '—' }}</td>
+                        <td>{{ ('$' ~ '{:,.0f}'.format(row.cum_ac)) if row else '—' }}</td>
+                        <td>{{ ('$' ~ '{:,.0f}'.format(row.ev)) if row else '—' }}</td>
+                        <td class="{{ 'text-danger' if row and row.cpi < 1 else ('text-success' if row and row.cpi >= 1 else '') }}">
+                            {{ row.cpi if row else '—' }}
+                        </td>
+                        <td>
+                            {% if row %}
+                            <a href="{{ url_for('edit_period', project_id=project.id, period_id=row.period_id) }}"
+                               class="edit-period-btn">Edit</a>
+                            {% else %}
+                            <a href="{{ url_for('add_period', project_id=project.id) }}?date={{ iv.date }}"
+                               class="edit-period-btn" style="color: var(--accent);">Enter Data</a>
+                            {% endif %}
+                        </td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% else %}
+    <p style="color: var(--text-secondary); font-size: 0.85rem;">
+        No intervals generated yet.
+        <a href="{{ url_for('update_project', project_id=project.id) }}" style="color: var(--accent);">Update Project →</a>
+    </p>
+    {% endif %}
 </div>
-{% endif %}
 
 <script>
     const projectId     = "{{ project.id }}";
     const startDate     = new Date('{{ project.start_date }}');
     const endDate       = new Date('{{ project.end_date }}');
-    const todayISO      = new Date().toISOString().split('T')[0];
-    const todayStr      = fmtDate(todayISO);
     const gridColor     = 'rgba(255,255,255,0.06)';
     const contractValue = {{ project.contract_value if project.contract_value else 'null' }};
 
     function fmtDate(iso) {
-        // yyyy-mm-dd → mm-dd-yyyy
-        const [y, m, d] = iso.split('-');
-        return `${m}-${d}-${y}`;
+        // yyyy-mm-dd → m/d (no leading zeros)
+        const [, m, d] = iso.split('-');
+        return `${parseInt(m)}/${parseInt(d)}`;
     }
 
     function linearPV(dateStr, bac) {
@@ -270,30 +299,23 @@
         return parseFloat((Math.max(0, Math.min(1, (d - startDate) / total)) * bac).toFixed(2));
     }
 
-    // Dashed "Today" vertical — attached per-chart, closure over todayStr
-    const todayLinePlugin = {
-        id: 'todayLine',
-        afterDraw(chart) {
-            const idx = chart.data.labels.indexOf(todayStr);
-            if (idx < 0) return;
-            const { ctx, chartArea, scales } = chart;
-            if (!chartArea) return;
-            const x = scales.x.getPixelForValue(idx);
-            ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(x, chartArea.top);
-            ctx.lineTo(x, chartArea.bottom);
-            ctx.lineWidth = 1.5;
-            ctx.strokeStyle = 'rgba(88,166,255,0.6)';
-            ctx.setLineDash([5, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.font = '600 11px Inter, sans-serif';
-            ctx.fillStyle = '#58a6ff';
-            ctx.fillText('Today', x + 6, chartArea.top + 14);
-            ctx.restore();
-        }
-    };
+
+    function buildLegend(elId, items) {
+        // items: [{ label, color, dash }]
+        const el = document.getElementById(elId);
+        if (!el) return;
+        const html = items.map(it => it.dash
+            ? `<span class="html-legend-item">
+                <span class="html-legend-swatch html-legend-swatch-dash" style="border-color:${it.color};"></span>
+                <span>${it.label}</span>
+               </span>`
+            : `<span class="html-legend-item">
+                <span class="html-legend-swatch" style="background:${it.color};"></span>
+                <span>${it.label}</span>
+               </span>`
+        ).join('');
+        el.innerHTML = `<div class="html-legend-row">${html}</div>`;
+    }
 
     fetch(`/api/project/${projectId}`)
         .then(r => r.json())
@@ -309,7 +331,7 @@
             const acData       = [], evData    = [], pvData      = [];
             const vdData       = [], vdBase    = [];
             const cpiData      = [], spiData   = [], targetLine  = [];
-            const velocityData = [], remaining = [], idealBurn   = [];
+            const velocityData = [], remaining = [];
             const costPerPt    = [];   // actual $/pt earned (for CPI/SPI right axis)
 
             let cumAC = 0, cumPts = 0, baseVD = null;
@@ -326,11 +348,6 @@
                 const spi = pv    > 0 ? ev / pv           : 0;
                 const cpp = cumPts > 0 ? cumAC / cumPts   : 0;   // actual cost per point
 
-                // Ideal burndown: linear from initialScope at startDate → 0 at endDate
-                const elapsed  = new Date(p.date) - startDate;
-                const timePct  = totalDur > 0 ? Math.max(0, Math.min(1, elapsed / totalDur)) : 0;
-                const ideal    = parseFloat((initialScope * (1 - timePct)).toFixed(1));
-
                 if (baseVD === null) baseVD = vd;
 
                 labels.push(fmtDate(p.date));
@@ -344,22 +361,56 @@
                 targetLine.push(1.0);
                 velocityData.push(p.points_completed);          // per-period, not cumulative
                 remaining.push(scope - cumPts);                 // bumps UP on scope creep
-                idealBurn.push(ideal);
                 costPerPt.push(parseFloat(cpp.toFixed(2)));
             });
 
-            // Extend EVMS to today so the Today marker always renders past last period
-            const evmsLabels = [...labels];
-            const evmsEV = [...evData], evmsAC = [...acData], evmsPV = [...pvData];
-            // Compare using ISO strings for reliable chronological ordering
-            const lastPeriodISO = periods.length ? periods[periods.length - 1].date : '';
-            if (!evmsLabels.includes(todayStr) &&
-                (evmsLabels.length === 0 || todayISO > lastPeriodISO)) {
-                evmsLabels.push(todayStr);
-                evmsEV.push(null);
-                evmsAC.push(null);
-                evmsPV.push(linearPV(todayISO, bac));
-            }
+            // EVMS: generate every interval across the full PoP as x-axis labels,
+            // then map EV/AC/PV onto those positions (null where no data yet).
+            const evmsAllLabels = [fmtDate(data.start_date)];
+            const evmsAllISO    = [data.start_date];
+            (function() {
+                const unit = data.interval_unit || 'weeks';
+                const size = parseInt(data.interval_size) || 2;
+                // Use UTC throughout to avoid local-timezone date shifts
+                const end  = new Date(data.end_date + 'T00:00:00Z');
+                let cur = new Date(data.start_date + 'T00:00:00Z');
+                while (true) {
+                    const next = new Date(cur);
+                    if (unit === 'months') next.setUTCMonth(next.getUTCMonth() + size);
+                    else if (unit === 'weeks') next.setUTCDate(next.getUTCDate() + size * 7);
+                    else next.setUTCDate(next.getUTCDate() + size);
+                    if (next > end) break;
+                    const iso = next.toISOString().split('T')[0];
+                    evmsAllISO.push(iso);
+                    evmsAllLabels.push(fmtDate(iso));
+                    cur = next;
+                }
+                // Always include end date
+                const endISO = data.end_date;
+                if (evmsAllISO[evmsAllISO.length - 1] !== endISO) {
+                    evmsAllISO.push(endISO);
+                    evmsAllLabels.push(fmtDate(endISO));
+                }
+            })();
+
+            // Build lookup: ISO date → cumulative EV/AC/PV from recorded periods
+            const evByDate  = {}, acByDate = {}, pvByDate = {};
+            periods.forEach((p, i) => {
+                evByDate[p.date] = evData[i];
+                acByDate[p.date] = acData[i];
+                pvByDate[p.date] = pvData[i];
+            });
+
+            const evmsLabels = evmsAllLabels;
+            const evmsEV = evmsAllISO.map((iso, i) => {
+                if (i === 0) return 0;
+                return evByDate[iso] !== undefined ? evByDate[iso] : null;
+            });
+            const evmsAC = evmsAllISO.map((iso, i) => {
+                if (i === 0) return 0;
+                return acByDate[iso] !== undefined ? acByDate[iso] : null;
+            });
+            const evmsPV = evmsAllISO.map(iso => parseFloat(linearPV(iso, bac).toFixed(2)));
 
             // ── Chart 1: EVMS ──────────────────────────────────────────────
             const evmsDatasets = [];
@@ -371,7 +422,7 @@
                     data: evmsLabels.map(() => contractValue),
                     borderColor: 'rgba(63,185,80,0.5)',
                     borderDash: [3, 5],
-                    borderWidth: 1.5,
+                    borderWidth: 2.5,
                     pointRadius: 0,
                     tension: 0,
                     fill: false
@@ -380,15 +431,26 @@
 
             evmsDatasets.push(
                 { label: 'Planned Value (PV)', data: evmsPV,
-                  borderColor: 'rgba(88,166,255,0.55)', borderDash: [6,4],
-                  borderWidth: 1.5, pointRadius: 0, tension: 0, fill: false },
+                  borderColor: 'rgba(88,166,255,0.7)', borderDash: [6,4],
+                  borderWidth: 2.5, pointRadius: 0, tension: 0, fill: false },
                 { label: 'Earned Value (EV)', data: evmsEV,
-                  borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.08)',
-                  fill: true, tension: 0.3, pointRadius: 5 },
+                  borderColor: '#f0883e', pointBackgroundColor: '#f0883e',
+                  fill: false, tension: 0.3, pointRadius: 5 },
                 { label: 'Actual Cost (AC)', data: evmsAC,
-                  borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.08)',
-                  fill: true, tension: 0.3, pointRadius: 5 }
+                  borderColor: '#52b788', pointBackgroundColor: '#52b788',
+                  fill: false, tension: 0.3, pointRadius: 5 }
             );
+
+            // Build HTML legend: single row
+            (function() {
+                const items = evmsDatasets.map(ds => {
+                    const isDash = !!ds.borderDash;
+                    return isDash
+                        ? `<span class="html-legend-item"><span class="html-legend-swatch html-legend-swatch-dash" style="border-color:${ds.borderColor};"></span><span>${ds.label}</span></span>`
+                        : `<span class="html-legend-item"><span class="html-legend-swatch" style="background:${ds.borderColor};"></span><span>${ds.label}</span></span>`;
+                });
+                document.getElementById('evmsLegend').innerHTML = `<div class="html-legend-row">${items.join('')}</div>`;
+            })();
 
             new Chart(document.getElementById('evmsChart'), {
                 type: 'line',
@@ -397,53 +459,105 @@
                     responsive: true,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: '#8b949e' } },
+                        legend: { display: false },
                         tooltip: { callbacks: {
                             label: c => c.parsed.y != null
                                 ? `${c.dataset.label}: $${c.parsed.y.toLocaleString()}` : null
                         }}
                     },
                     scales: {
-                        x: { ticks: { color: '#8b949e' }, grid: { color: gridColor } },
+                        x: { ticks: { color: '#8b949e', autoSkip: false, maxRotation: 45 }, grid: { color: gridColor } },
                         y: { ticks: { color: '#8b949e', callback: v => '$' + v.toLocaleString() },
                              grid: { color: gridColor } }
                     }
-                },
-                plugins: [todayLinePlugin]
+                }
             });
 
             // ── Chart 2: Release Burndown ──────────────────────────────────
-            // Left axis: remaining scope (line) + ideal line
-            // Right axis: per-period velocity (bars)
+            // Full PoP: start → recorded intervals → end date
+            // Forecast: project remaining scope using avg velocity from last recorded point
+            const avgVelocity = cumPts / periods.length;
+            const lastScope   = remaining[remaining.length - 1];
+            const lastDate    = new Date(periods[periods.length - 1].date);
+
+            // Generate future interval dates from last period to project end
+            const intervalUnit = data.interval_unit || 'weeks';
+            const intervalSize = parseInt(data.interval_size) || 2;
+            function nextIntervalDate(base) {
+                const d = new Date(base);
+                if (intervalUnit === 'months') {
+                    d.setUTCMonth(d.getUTCMonth() + intervalSize);
+                } else if (intervalUnit === 'weeks') {
+                    d.setUTCDate(d.getUTCDate() + intervalSize * 7);
+                } else {
+                    d.setUTCDate(d.getUTCDate() + intervalSize);
+                }
+                return d;
+            }
+
+            const bdLabels    = [fmtDate(data.start_date), ...labels];
+            const bdRemaining = [null, ...remaining];
+            const bdForecast  = new Array(bdLabels.length).fill(null);
+            const bdVelocity  = [null, ...velocityData];
+
+            // Anchor forecast at last recorded point
+            bdForecast[bdForecast.length - 1] = lastScope;
+
+            let forecastScope = lastScope;
+            let cursor = nextIntervalDate(lastDate);
+            while (forecastScope > 0 && cursor <= endDate) {
+                forecastScope = Math.max(0, parseFloat((forecastScope - avgVelocity).toFixed(1)));
+                const lbl = fmtDate(cursor.toISOString().split('T')[0]);
+                bdLabels.push(lbl);
+                bdRemaining.push(null);
+                bdForecast.push(forecastScope);
+                bdVelocity.push(null);
+                cursor = nextIntervalDate(cursor);
+            }
+
+            // Ensure end date is the final label
+            const endLbl = fmtDate(data.end_date);
+            if (bdLabels[bdLabels.length - 1] !== endLbl) {
+                bdLabels.push(endLbl);
+                bdRemaining.push(null);
+                bdForecast.push(null);
+                bdVelocity.push(null);
+            }
+
+            buildLegend('burndownLegend', [
+                { label: 'Remaining Scope (pts)',    color: '#f0883e' },
+                { label: 'Forecast (avg velocity)',  color: '#f0883e', dash: true },
+                { label: 'Velocity (pts)',            color: '#58a6ff' }
+            ]);
+
             new Chart(document.getElementById('burndownChart'), {
                 data: {
-                    labels,
+                    labels: bdLabels,
                     datasets: [
                         { type: 'bar',  label: 'Velocity (pts)',
-                          data: velocityData,
+                          data: bdVelocity,
                           backgroundColor: 'rgba(88,166,255,0.3)', borderColor: '#58a6ff',
                           borderWidth: 1, yAxisID: 'yVel' },
-                        { type: 'line', label: 'Ideal Burndown',
-                          data: idealBurn,
-                          borderColor: 'rgba(255,255,255,0.2)', borderDash: [6,4],
-                          borderWidth: 1.5, pointRadius: 0, tension: 0,
-                          fill: false, yAxisID: 'yScope' },
-                        { type: 'line', label: 'Remaining Scope',
-                          data: remaining,
-                          borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.07)',
-                          fill: true, tension: 0,   // no smoothing — shows scope-creep bumps sharply
-                          pointRadius: 5, yAxisID: 'yScope' }
+                        { type: 'line', label: 'Remaining Scope (pts)',
+                          data: bdRemaining,
+                          borderColor: '#f0883e', backgroundColor: 'rgba(240,136,62,0.07)',
+                          fill: true, tension: 0, pointRadius: 5, yAxisID: 'yScope' },
+                        { type: 'line', label: 'Forecast (avg velocity)',
+                          data: bdForecast,
+                          borderColor: '#f0883e', borderDash: [5, 5],
+                          borderWidth: 2, pointRadius: 3, tension: 0,
+                          fill: false, yAxisID: 'yScope' }
                     ]
                 },
                 options: {
                     responsive: true,
                     interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { labels: { color: '#8b949e' } } },
+                    plugins: { legend: { display: false } },
                     scales: {
                         x:      { ticks: { color: '#8b949e' }, grid: { color: gridColor } },
                         yScope: { type: 'linear', position: 'left',
-                                  ticks: { color: '#f85149' }, grid: { color: gridColor },
-                                  title: { display: true, text: 'Remaining (pts)', color: '#f85149' } },
+                                  ticks: { color: '#f0883e' }, grid: { color: gridColor },
+                                  title: { display: true, text: 'Remaining (pts)', color: '#f0883e' } },
                         yVel:   { type: 'linear', position: 'right',
                                   ticks: { color: '#58a6ff' }, grid: { drawOnChartArea: false },
                                   title: { display: true, text: 'Velocity (pts)', color: '#58a6ff' } }
@@ -451,30 +565,46 @@
                 }
             });
 
-            // ── Chart 3: Value Density vs Actual $/pt ─────────────────────
-            // VD drops on scope creep; Actual $/pt stays flat (team velocity
-            // is fixed). The gap between them IS the overrun.
-            // When Actual $/pt > VD → CPI < 1.0. That's the false hope.
+            // ── Chart 3: Value Density — The False Hope ────────────────────
+            // Bars = shrinking budget per point (VD). Shorter bars = scope creep dilution.
+            // Line = actual $/pt earned. When the line rises above a bar → that period is in overrun.
+            // The trap: team velocity is fixed, but VD keeps dropping. Overrun is mathematical.
+            const vdBarColors = vdData.map((vd, i) =>
+                costPerPt[i] > vd ? 'rgba(248,81,73,0.8)' : 'rgba(210,153,34,0.75)'
+            );
+            const vdBarBorders = vdData.map((vd, i) =>
+                costPerPt[i] > vd ? '#f85149' : '#d29922'
+            );
+
+            buildLegend('vdLegend', [
+                { label: 'Estimated Cost per Point — within budget', color: '#d29922' },
+                { label: 'Estimated Cost per Point — overrun',       color: '#f85149' },
+                { label: 'Actual $/pt',                               color: '#4db6ac' }
+            ]);
+
             new Chart(document.getElementById('vdChart'), {
-                type: 'line',
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Budgeted $/pt (VD)', data: vdData,
-                          borderColor: '#d29922', backgroundColor: 'rgba(210,153,34,0.07)',
-                          fill: true, stepped: 'before', pointRadius: 6,
-                          pointBackgroundColor: '#d29922', borderWidth: 2 },
-                        { label: 'Actual $/pt', data: costPerPt,
-                          borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.07)',
-                          fill: true, tension: 0.2, pointRadius: 5,
-                          pointBackgroundColor: '#f85149', borderWidth: 2 }
+                        { type: 'bar',  label: 'Estimated Cost per Point',
+                          data: vdData,
+                          backgroundColor: vdBarColors,
+                          borderColor: vdBarBorders,
+                          borderWidth: 1.5,
+                          borderRadius: 3 },
+                        { type: 'line', label: 'Actual $/pt',
+                          data: costPerPt,
+                          borderColor: '#4db6ac',
+                          pointBackgroundColor: '#4db6ac',
+                          borderWidth: 2.5, tension: 0.2, pointRadius: 5,
+                          fill: false }
                     ]
                 },
                 options: {
                     responsive: true,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: '#8b949e' } },
+                        legend: { display: false },
                         tooltip: { callbacks: {
                             label: c => `${c.dataset.label}: $${c.parsed.y.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}/pt`
                         }}
@@ -488,6 +618,30 @@
             });
 
             // ── Chart 4: CPI & SPI Trend ───────────────────────────────────
+            // HTML legend: color key + CPI (solid) / SPI (dashed) line style
+            (function() {
+                const el = document.getElementById('cpiSpiLegend');
+                el.innerHTML = `<div class="html-legend-row">
+                    <span class="html-legend-item"><span class="html-legend-line-solid"></span><span>Cost Performance Index (CPI)</span></span>
+                    <span class="html-legend-item"><span class="html-legend-line-dashed"></span><span>Schedule Performance Index (SPI)</span></span>
+                </div>
+                <div class="html-legend-row">
+                    <span class="html-legend-item"><span class="html-legend-swatch" style="background:#3fb950;"></span><span>≥ 1.0 (good)</span></span>
+                    <span class="html-legend-item"><span class="html-legend-swatch" style="background:#d29922;"></span><span>crossing 1.0 (caution)</span></span>
+                    <span class="html-legend-item"><span class="html-legend-swatch" style="background:#f85149;"></span><span>< 1.0 (bad)</span></span>
+                </div>`;
+            })();
+
+            function segColor(y0, y1) {
+                if (y0 >= 1 && y1 >= 1) return '#3fb950';
+                if (y0 <  1 && y1 <  1) return '#f85149';
+                return '#d29922';
+            }
+            function ptColor(ctx) {
+                const v = ctx.parsed?.y;
+                return (v != null && v >= 1) ? '#3fb950' : '#f85149';
+            }
+
             new Chart(document.getElementById('cpiSpiChart'), {
                 type: 'line',
                 data: {
@@ -496,19 +650,27 @@
                         { label: 'Target (1.0)', data: targetLine,
                           borderColor: 'rgba(255,255,255,0.15)', borderDash: [6,4],
                           borderWidth: 1.5, pointRadius: 0, tension: 0, fill: false },
-                        { label: 'CPI (Cost)', data: cpiData,
+                        { label: 'Cost Performance Index (CPI)', data: cpiData,
                           borderColor: '#3fb950', tension: 0.2, pointRadius: 5,
-                          pointBackgroundColor: '#3fb950' },
-                        { label: 'SPI (Schedule)', data: spiData,
-                          borderColor: '#58a6ff', tension: 0.2, pointRadius: 5,
-                          pointBackgroundColor: '#58a6ff' }
+                          pointBackgroundColor: ptColor, pointBorderColor: ptColor,
+                          segment: { borderColor: ctx => segColor(ctx.p0.parsed.y, ctx.p1.parsed.y) }
+                        },
+                        { label: 'Schedule Performance Index (SPI)', data: spiData,
+                          borderColor: '#58a6ff', borderDash: [6, 4], tension: 0.2, pointRadius: 5,
+                          pointBackgroundColor: ptColor, pointBorderColor: ptColor,
+                          segment: {
+                              borderColor: ctx => segColor(ctx.p0.parsed.y, ctx.p1.parsed.y),
+                              borderDash:  () => [6, 4]
+                          }
+                        }
                     ]
                 },
                 options: {
                     responsive: true,
+                    aspectRatio: 1.5,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { labels: { color: '#8b949e' } },
+                        legend: { display: false },
                         tooltip: { callbacks: {
                             label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}`
                         }}
