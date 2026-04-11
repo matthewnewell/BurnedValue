@@ -3,7 +3,8 @@ import os
 import uuid
 from datetime import datetime, timedelta
 
-DATA_FILE = os.path.join('data', 'projects.json')
+_DATA_DIR = os.environ.get('DATA_DIR', 'data')
+DATA_FILE = os.path.join(_DATA_DIR, 'projects.json')
 
 _DEMO_PERIOD_IDS = [f"demo-p{i}" for i in range(1, 10)]
 
