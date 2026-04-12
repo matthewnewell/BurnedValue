@@ -536,22 +536,45 @@
             const bdVelocity  = [null, ...velocityData];
 
             bdForecast[bdForecast.length - 1] = lastScope;
-            let fScope = lastScope, cursor = nextInterval(lastDate);
-            while (fScope > 0 && cursor <= endDate) {
+
+            const endLblBd = fmtDate(data.end_date);
+            let fScope = lastScope;
+            let cursor = nextInterval(lastDate);
+            let prevCursor = new Date(lastDate);
+            let popEndInserted = false;
+            const MAX_FORECAST = 60;
+            let fCount = 0;
+
+            while (fScope > 0 && fCount < MAX_FORECAST) {
+                if (!popEndInserted && cursor > endDate) {
+                    const span    = cursor - prevCursor;
+                    const elapsed = endDate - prevCursor;
+                    const frac    = span > 0 ? elapsed / span : 0;
+                    const scopeAtEnd = Math.max(0,
+                        parseFloat((fScope + avgVel * (1 - frac)).toFixed(1)));
+                    bdLabels.push(endLblBd);
+                    bdRemaining.push(null);
+                    bdForecast.push(scopeAtEnd);
+                    bdVelocity.push(null);
+                    popEndInserted = true;
+                }
                 fScope = Math.max(0, parseFloat((fScope - avgVel).toFixed(1)));
                 bdLabels.push(fmtDate(cursor.toISOString().split('T')[0]));
                 bdRemaining.push(null);
                 bdForecast.push(fScope);
                 bdVelocity.push(null);
+                prevCursor = new Date(cursor);
                 cursor = nextInterval(cursor);
+                fCount++;
             }
 
-            const endLblBd = fmtDate(data.end_date);
-            if (bdLabels[bdLabels.length - 1] !== endLblBd) {
-                bdLabels.push(endLblBd);
-                bdRemaining.push(null);
-                bdForecast.push(fScope > 0 ? fScope : null);
-                bdVelocity.push(null);
+            if (!popEndInserted) {
+                if (bdLabels[bdLabels.length - 1] !== endLblBd) {
+                    bdLabels.push(endLblBd);
+                    bdRemaining.push(null);
+                    bdForecast.push(fScope > 0 ? fScope : null);
+                    bdVelocity.push(null);
+                }
             }
 
             const blufPopPlugin = {
@@ -606,7 +629,7 @@
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { display: false },
-                        ...(fScope > 0 ? { popLine: { label: endLblBd } } : {})
+                        popLine: { label: endLblBd }
                     },
                     scales: {
                         x:      { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: gridColor } },
