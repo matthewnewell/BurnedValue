@@ -11,45 +11,66 @@
         <p class="description">{{ project.description }}</p>
         {% endif %}
         <div class="project-header-meta">
-            <span class="meta-line">
-                {% if project.contract_value %}
-                Contract Value: <strong>${{ "{:,.0f}".format(project.contract_value) }}</strong>
-                &nbsp;|&nbsp;
-                {% endif %}
-                Budget at Complete (BAC): <strong>${{ "{:,.0f}".format(project.bac) }}</strong>
-            </span>
             {% if project.contract_value %}
-            <span class="meta-line">
-                Management Reserve (Baseline): <strong class="text-success">${{ "{:,.0f}".format(project.contract_value - project.bac) }}</strong>
-                {% if metrics.eac > project.bac %}
-                &nbsp;|&nbsp; Remaining: <strong class="{{ 'text-danger' if metrics.eac >= project.contract_value else 'text-warning' }}">${{ "{:,.0f}".format([project.contract_value - metrics.eac, 0]|max) }}</strong>
-                {% endif %}
-            </span>
+            <div class="meta-item">
+                <span class="meta-label">Contract Value</span>
+                <span class="meta-value">${{ "{:,.0f}".format(project.contract_value) }}</span>
+            </div>
             {% endif %}
-            <span class="meta-line">
-                Baseline Scope: <strong>{{ baseline_scope|int }} pts</strong>
-                &nbsp;|&nbsp;
-                Scope Growth:
-                <strong class="{{ 'text-danger' if scope_growth > 0 else '' }}">
-                    {{ '+' if scope_growth > 0 }}{{ scope_growth|int }} pts
-                </strong>
-                &nbsp;|&nbsp;
-                Total Scope: <strong>{{ (baseline_scope + scope_growth)|int }} pts</strong>
-            </span>
-            <span class="meta-line">
-                Period of Performance: <strong>{{ project.start_date|fmtdate }} → {{ project.end_date|fmtdate }}</strong>
-            </span>
+            <div class="meta-item">
+                <span class="meta-label">BAC</span>
+                <span class="meta-value">${{ "{:,.0f}".format(project.bac) }}</span>
+            </div>
+            {% if metrics.eac > 0 %}
+            <div class="meta-item">
+                <span class="meta-label">EAC</span>
+                <span class="meta-value {{ 'text-danger' if metrics.eac > (project.contract_value or project.bac) else ('text-warning' if metrics.eac > project.bac else 'text-success') }}">${{ "{:,.0f}".format(metrics.eac) }}</span>
+            </div>
+            {% endif %}
+            {% if project.contract_value %}
+            {% set reserve_baseline = project.contract_value - project.bac %}
+            <div class="meta-item">
+                <span class="meta-label">Mgmt Reserve</span>
+                {% if metrics.eac > project.bac %}
+                    {% set reserve_remaining = [project.contract_value - metrics.eac, 0]|max %}
+                    <span class="meta-value">
+                        <span class="{{ 'text-danger' if metrics.eac >= project.contract_value else 'text-warning' }}">${{ "{:,.0f}".format(reserve_remaining) }}</span>
+                        <span style="color: var(--text-secondary); font-weight: 400;"> of ${{ "{:,.0f}".format(reserve_baseline) }} baseline</span>
+                    </span>
+                {% else %}
+                    <span class="meta-value text-success">${{ "{:,.0f}".format(reserve_baseline) }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
+            <div class="meta-group">
+                <div class="meta-item">
+                    <span class="meta-label">Baseline Scope</span>
+                    <span class="meta-value">{{ baseline_scope|int }} pts</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Scope Growth</span>
+                    <span class="meta-value {{ 'text-danger' if scope_growth > 0 else '' }}">{{ '+' if scope_growth > 0 }}{{ scope_growth|int }} pts</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Total Scope</span>
+                    <span class="meta-value">{{ (baseline_scope + scope_growth)|int }} pts</span>
+                </div>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Period of Performance</span>
+                <span class="meta-value">{{ project.start_date|fmtdate }} → {{ project.end_date|fmtdate }}</span>
+            </div>
         </div>
     </div>
-    <div style="display: flex; gap: 10px; align-items: center;">
+    <div class="header-actions">
         {% if project.is_demo %}
         <form method="POST" action="{{ url_for('reset_demo') }}">
             <button type="submit" class="btn btn-ghost-neutral" title="Restore demo to its original state">↺ Reset Demo</button>
         </form>
         {% endif %}
-        <a href="{{ url_for('update_project', project_id=project.id) }}" class="btn primary" style="white-space:nowrap;">Update Project</a>
-        <a href="#intervals" class="btn btn-outline-accent" style="white-space:nowrap;">Update Intervals</a>
-        <a href="{{ url_for('bluf', project_id=project.id) }}" class="btn btn-outline-accent" style="white-space:nowrap;font-size:1rem;font-weight:600;">BLUF</a>
+        <a href="{{ url_for('update_project', project_id=project.id) }}" class="btn primary">Update Project</a>
+        <a href="#intervals" class="btn btn-outline-accent">Update Intervals</a>
+        <a href="{{ url_for('bluf', project_id=project.id) }}" class="btn btn-outline-accent" style="font-size:1rem;font-weight:600;">BLUF</a>
     </div>
 </div>
 
@@ -567,27 +588,48 @@
             // Anchor forecast at last recorded point
             bdForecast[bdForecast.length - 1] = lastScope;
 
+            // Extend forecast past PoP End until scope hits 0 — this reveals schedule slip visually.
+            // PoP End is inserted as an interpolated point when the cursor first crosses it.
+            const endLbl = fmtDate(data.end_date);
             let forecastScope = lastScope;
             let cursor = nextIntervalDate(lastDate);
-            while (forecastScope > 0 && cursor <= endDate) {
+            let prevCursor = new Date(lastDate);
+            let popEndInserted = false;
+            const MAX_FORECAST = 60; // safety cap
+            let fCount = 0;
+
+            while (forecastScope > 0 && fCount < MAX_FORECAST) {
+                // Insert PoP End label at the interpolated crossing point
+                if (!popEndInserted && cursor > endDate) {
+                    const span    = cursor - prevCursor;
+                    const elapsed = endDate - prevCursor;
+                    const frac    = span > 0 ? elapsed / span : 0;
+                    const scopeAtEnd = Math.max(0,
+                        parseFloat((forecastScope + avgVelocity * (1 - frac)).toFixed(1)));
+                    bdLabels.push(endLbl);
+                    bdRemaining.push(null);
+                    bdForecast.push(scopeAtEnd);
+                    bdVelocity.push(null);
+                    popEndInserted = true;
+                }
                 forecastScope = Math.max(0, parseFloat((forecastScope - avgVelocity).toFixed(1)));
-                const lbl = fmtDate(cursor.toISOString().split('T')[0]);
-                bdLabels.push(lbl);
+                bdLabels.push(fmtDate(cursor.toISOString().split('T')[0]));
                 bdRemaining.push(null);
                 bdForecast.push(forecastScope);
                 bdVelocity.push(null);
+                prevCursor = new Date(cursor);
                 cursor = nextIntervalDate(cursor);
+                fCount++;
             }
 
-            // Ensure end date is the final label.
-            // If forecast hasn't reached 0, extend the line to PoP End so it terminates
-            // at the vertical deadline marker rather than floating short of it.
-            const endLbl = fmtDate(data.end_date);
-            if (bdLabels[bdLabels.length - 1] !== endLbl) {
-                bdLabels.push(endLbl);
-                bdRemaining.push(null);
-                bdForecast.push(forecastScope > 0 ? forecastScope : null);
-                bdVelocity.push(null);
+            // Project on time or early — still pin PoP End as the final label
+            if (!popEndInserted) {
+                if (bdLabels[bdLabels.length - 1] !== endLbl) {
+                    bdLabels.push(endLbl);
+                    bdRemaining.push(null);
+                    bdForecast.push(forecastScope > 0 ? forecastScope : null);
+                    bdVelocity.push(null);
+                }
             }
 
             buildLegend('burndownLegend', [
@@ -647,7 +689,7 @@
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { display: false },
-                        ...(forecastScope > 0 ? { popLine: { label: endLbl } } : {})
+                        popLine: { label: endLbl }
                     },
                     scales: {
                         x:      { ticks: { color: '#8b949e' }, grid: { color: gridColor } },

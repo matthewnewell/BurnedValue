@@ -68,6 +68,7 @@
 
         <div class="project-card-actions">
             <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn primary">View Dashboard</a>
+            <a href="{{ url_for('bluf', project_id=project.id) }}" class="btn btn-outline-accent">BLUF</a>
             {% if not project.is_demo %}
             <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}"
                   onsubmit="return confirm('Delete {{ project.name }}? This cannot be undone.')">

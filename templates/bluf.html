@@ -218,6 +218,37 @@
     .sidebar, .bluf-header-right { display: none !important; }
     .bluf-verdict, .bluf-metric, .bluf-list li { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .bluf-metrics {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .bluf-two-col {
+        grid-template-columns: 1fr;
+    }
+    .bluf-ra-grid {
+        grid-template-columns: 1fr;
+    }
+    .bluf-header {
+        flex-direction: column;
+        gap: 12px;
+    }
+    .bluf-header-right {
+        flex-shrink: unset;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .bluf-metrics {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .bluf-wrap {
+        padding-bottom: 32px;
+    }
+}
 </style>
 
 <div class="bluf-wrap">

@@ -186,20 +186,57 @@ a {
 
 .project-header-meta {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 0;
+    margin-top: 10px;
 }
 
-.meta-line {
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 20px 0 0;
+}
+
+.meta-item + .meta-item,
+.meta-item + .meta-group,
+.meta-group + .meta-item {
+    padding-left: 20px;
+    border-left: 1px solid var(--border);
+}
+
+.meta-group {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.meta-group .meta-item {
+    padding-left: 0;
+    border-left: none;
+    padding-right: 20px;
+}
+
+.meta-group .meta-item + .meta-item {
+    padding-left: 20px;
+    border-left: 1px solid var(--border);
+}
+
+.meta-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     color: var(--text-secondary);
-    font-size: 0.85rem;
     white-space: nowrap;
 }
 
-.meta-line strong {
+.meta-value {
+    font-size: 0.9rem;
+    font-weight: 700;
     color: var(--text-primary);
-    font-weight: 600;
+    white-space: nowrap;
 }
 
 .description {
@@ -877,4 +914,143 @@ a {
 .warning-border {
     border-left: 3px solid var(--warning);
     padding-left: 14px;
+}
+
+/* ── Header Actions (dashboard button group) ── */
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* ── Responsive ── */
+
+/* Tablet & mobile: stack sidebar on top */
+@media (max-width: 768px) {
+    .app-container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        box-sizing: border-box;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .brand h1 {
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    .nav-links {
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+    }
+
+    .nav-links li {
+        margin-bottom: 0;
+    }
+
+    .content {
+        padding: 20px 16px;
+    }
+
+    /* Header row: stack vertically, buttons wrap */
+    .header-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header-actions {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    /* Meta items: remove dividers and tighten gaps on small screens */
+    .meta-item + .meta-item,
+    .meta-item + .meta-group,
+    .meta-group + .meta-item,
+    .meta-group .meta-item + .meta-item {
+        padding-left: 12px;
+        border-left: none;
+    }
+    .meta-item,
+    .meta-group .meta-item {
+        padding-right: 12px;
+    }
+
+    /* Charts: single column */
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Project index cards: single column */
+    .project-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* KPI grid: 2 per row */
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Form rows: stack */
+    .row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    /* Chart modal: full-screen on mobile */
+    .chart-modal-box {
+        padding: 20px 16px 16px;
+        max-height: 95vh;
+    }
+
+    /* Scope grid rows: allow wrapping */
+    .scope-row-locked,
+    .scope-row-input,
+    .scope-row-total {
+        flex-wrap: wrap;
+    }
+
+    /* Legend rows: allow wrapping */
+    .html-legend-row {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+    .content {
+        padding: 16px 12px;
+    }
+
+    /* KPI grid: 2 per row even on narrow phones */
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .kpi .value {
+        font-size: 1.5rem;
+    }
+
+    /* Sidebar nav: wrap if needed */
+    .sidebar {
+        flex-wrap: wrap;
+    }
+
+    /* Tooltip: keep within viewport */
+    .tooltip-text {
+        width: 200px;
+        left: 0;
+        transform: none;
+    }
 }

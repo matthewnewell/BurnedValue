@@ -127,6 +127,40 @@ class CalculationEngine:
         return details
 
     @staticmethod
+    def _project_finish(project, sorted_periods, avg_velocity):
+        """
+        Mirrors the burndown chart forecast exactly:
+        projects finish date using remaining scope / avg velocity,
+        advancing by one interval at a time from the last period date.
+        Returns (projected_end datetime, days_slip int) or (None, 0) on error.
+        """
+        try:
+            interval_unit = project.get('interval_unit', 'weeks')
+            interval_size = int(project.get('interval_size', 2))
+            if interval_unit == 'months':
+                interval_days = interval_size * 30
+            elif interval_unit == 'weeks':
+                interval_days = interval_size * 7
+            else:
+                interval_days = interval_size
+
+            cum_pts       = sum(p['points_completed'] for p in sorted_periods)
+            last_scope    = sorted_periods[-1]['total_estimated_effort']
+            remaining     = last_scope - cum_pts
+            last_dt       = datetime.strptime(sorted_periods[-1]['date'], '%Y-%m-%d')
+            end_dt        = datetime.strptime(project['end_date'], '%Y-%m-%d')
+
+            if avg_velocity <= 0 or remaining <= 0:
+                return end_dt, 0
+
+            intervals_needed  = remaining / avg_velocity
+            projected_end     = last_dt + timedelta(days=intervals_needed * interval_days)
+            days_slip         = (projected_end - end_dt).days
+            return projected_end, days_slip
+        except (ValueError, KeyError, ZeroDivisionError):
+            return None, 0
+
+    @staticmethod
     def generate_narrative(project, periods, metrics):
         """
         Produces a plain-English interpretation of project health.
@@ -160,12 +194,28 @@ class CalculationEngine:
         current_vd = metrics['value_density']
         vd_dilution_pct = round((initial_vd - current_vd) / initial_vd * 100, 1) if initial_vd > 0 else 0
 
+        # Schedule slip projection — same math as the burndown chart
+        try:
+            end_dt = datetime.strptime(project['end_date'], '%Y-%m-%d')
+            planned_end_str = end_dt.strftime('%m/%d/%Y')
+        except (ValueError, KeyError):
+            end_dt = None
+            planned_end_str = None
+
+        projected_end, days_slip = CalculationEngine._project_finish(
+            project, sorted_periods, metrics['avg_velocity']
+        )
+        projected_end_str = projected_end.strftime('%m/%d/%Y') if projected_end else None
+
+        # Overall status: escalate to danger if schedule is also badly off
         if cpi >= 1.05:
             status = 'success'
         elif cpi >= 0.95:
             status = 'warning'
         else:
             status = 'danger'
+        if spi < 0.85 and status != 'danger':
+            status = 'warning'
 
         # Build the headline
         if status == 'success':
@@ -190,10 +240,18 @@ class CalculationEngine:
         elif overrun < 0:
             lines.append(f"At current CPI, EAC is ${eac:,.0f} \u2014 ${abs(overrun):,.0f} under budget.")
 
-        if spi < 0.95:
-            lines.append(f"Schedule is also behind plan (SPI: {spi}).")
-        elif spi > 1.05:
-            lines.append(f"Ahead of schedule (SPI: {spi}).")
+        if spi < 0.95 and days_slip > 0 and projected_end_str:
+            lines.append(
+                f"Schedule is behind plan (SPI: {spi}) \u2014 at current velocity, "
+                f"projected finish is {projected_end_str}, {days_slip} days past the planned {planned_end_str}."
+            )
+        elif spi < 0.95:
+            lines.append(f"Schedule is behind plan (SPI: {spi}).")
+        elif spi > 1.05 and days_slip < 0 and projected_end_str:
+            lines.append(
+                f"Ahead of schedule (SPI: {spi}) \u2014 projected finish {projected_end_str}, "
+                f"{abs(days_slip)} days early."
+            )
 
         return {
             'status': status,
@@ -244,24 +302,18 @@ class CalculationEngine:
         overrun_pct = round((eac - bac) / bac * 100, 1) if bac else 0
         margin_remaining = round(cv - eac, 0) if cv else None
 
-        # ── Schedule ─────────────────────────────────────────────────────
+        # ── Schedule — same math as the burndown chart ───────────────────
         try:
-            start_dt      = datetime.strptime(project['start_date'], '%Y-%m-%d')
-            end_dt        = datetime.strptime(project['end_date'],   '%Y-%m-%d')
-            last_dt       = datetime.strptime(sorted_periods[-1]['date'], '%Y-%m-%d')
-            remaining_days = (end_dt - last_dt).days
-            if spi > 0:
-                projected_remaining = int(remaining_days / spi)
-            else:
-                projected_remaining = remaining_days
-            projected_end = last_dt + timedelta(days=projected_remaining)
-            days_slip     = (projected_end - end_dt).days
-            projected_end_str = projected_end.strftime('%m/%d/%Y')
-            planned_end_str   = end_dt.strftime('%m/%d/%Y')
+            end_dt          = datetime.strptime(project['end_date'], '%Y-%m-%d')
+            planned_end_str = end_dt.strftime('%m/%d/%Y')
         except (ValueError, KeyError):
-            days_slip = 0
-            projected_end_str = None
-            planned_end_str   = None
+            end_dt          = None
+            planned_end_str = None
+
+        projected_end, days_slip = CalculationEngine._project_finish(
+            project, sorted_periods, metrics['avg_velocity']
+        )
+        projected_end_str = projected_end.strftime('%m/%d/%Y') if projected_end else None
 
         # ── CPI trend (cumulative, last 3 periods) ───────────────────────
         cum_ac_t = 0.0
