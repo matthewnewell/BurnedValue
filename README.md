@@ -1,146 +1,157 @@
-# Burned Value 🚀
+# Burned Value
 
-### **Earned Value Management + Agile Release Burndown Lovechild**
+**Earned Value Management with Agile Burndown — designed for closed, on-premise environments.**
 
-**Burned Value** is an experiment in project governance for unpredictable projects. By combining EVMS's fiscal discipline with Burndown's agility, we ensure every dollar is an intentional investment in the right outcomes—navigating constant volatility while keeping delivery anchored to contractual intent and true value.  
-
-We use the **Agile Release Burndown** as **Quantifiable Backup Data (QBD)** to drive EVMS calculations. It replaces "Manager Guesses" with "Working Software" (Points). 
+Burned Value is an open-source project governance dashboard that combines EVMS (Earned Value Management System) discipline with Agile Release Burndown transparency. It is built to run entirely within your organization's network with no external dependencies.
 
 ---
 
+## Security and Network Profile
 
+Burned Value is designed with IT security in mind. The following applies to all deployments:
 
-### 🛡️ The Over-Protective Parent: **EVMS** (Earned Value Management)
-**EVMS** is the parent who won't let you leave the house without a detailed itinerary and a receipts envelope.
-*   **The Strength:** Unmatched fiscal discipline. You always know exactly where the money went (CPI/SPI/BAC).
-*   **The Flaw (The Liar's Percent):** It relies on a subjective "Percent Complete." If the PM *guesses* they are 50% done, EVMS cheerfully reports you are on budget—right up until you aren't.
+**No data leaves your network.**
+All project data is stored in a single local JSON file on the host machine. The application makes no outbound connections of any kind unless an AI provider is explicitly configured by the administrator (see AI Integration below).
 
-### 🎨 The Free-Spirited Parent: **Release Burndown**
-The **Release Burndown** lives in the moment. It accepts that the roadmap is a living document.
-*   **The Strength:** High transparency and adaptability. Tracks *real* work (Points/Velocity).
-*   **The Flaw:** Can accidentally burn through a million dollars without realizing the "velocity" produced doesn't actually cover the cost.
+**No external services, accounts, or registrations required.**
+The application has no telemetry, no analytics, no third-party authentication, and no software-as-a-service dependencies. It does not phone home.
 
-### 🧑‍💼 The Adult Child: **Burned Value**
-**Burned Value** is the responsible offspring. It inherited the fiscal integrity of EVMS and the honesty of the Burndown.
+**No database server required.**
+Burned Value stores all data in a flat file (`data/projects.json`) on the host filesystem. There is no database to patch, license, or secure.
 
+**Minimal attack surface.**
+The application is a single Python process (Flask + Gunicorn) serving an internal web UI. It has no public API, no webhook endpoints, and no inbound integration surface.
 
+**Fully air-gapped capable.**
+The Docker image can be built and run on a host with no internet access. All dependencies are resolved at build time from `requirements.txt`.
 
-### 📊 Percent Complete
-$$ \text{Percent Complete} = \frac{\text{Completed Points}}{\text{Total Scope Points}} $$
+**AI features are optional and off by default.**
+The AI analyst feature is disabled (`AI_PROVIDER=none`) unless an administrator explicitly configures an endpoint. When configured for on-premise use with a local Ollama instance, no data ever leaves the internal network. See AI Integration below.
 
-$$ \text{Earned Value (EV)} = \text{Percent Complete} \times \text{Budget at Completion (BAC)} $$
-
-If you spend 50% of your budget but have only finished 10% of your Story Points, **Burned Value** shows a **CPI of 0.2**. No hiding.
-
----
-
-### 💎 Value Density - price per point
-
-**Value Density** is the "Exchange Rate" between estimated Effort (Points) and your Budget.
-
-$$ \text{Value Density} = \frac{\text{Total Budget (BAC)}}{\text{Total Estimated Effort (Points)}} $$
-
-It answers the question: **"How much Earned Value do I unlock for every Story Point I complete?"**
-
-### 🌪️ The "Volatility" Effect
-Without a real-time link between budget and scope, the cost of additional work remains hidden until the point of financial exhaustion. In **Burned Value**, scope creep immediately dilutes your Value Density.
-
-**Example:**
-*   You have **$100,000** and **100 Points**.
-*   **Value Density = $1,000 / point.** (Every point you finish earns you $1,000 in value).
-
-**Scenario: Scope Creep**
-*   You add **50 Points** of new features (Total 150), but the Budget stays **$100,000**.
-*   **New Value Density = $666 / point.**
-
-**The Consequence: Dilution of Value**  
-When scope increases without a budget adjustment, your work is instantly "worth less." To earn the same $1,000 of Value, you must now deliver 1.5 points of effort. Your CPI (Cost Performance Index) craters because you are burning resources to unlock "diluted" value.
-
-Value Density replaces optimistic "hope" with fiscal reality. Unless velocity scales perfectly with scope, you have created a mathematical gap that cannot be closed through effort alone.
-
-### ⚖️ Scope-Value Trade-off
-Unfunded scope is a mathematical dilution of value; maintaining project integrity requires a deliberate choice between budget, timeline, or trade-offs.
-
-* **Fund the Scope:** Increase the budget to maintain **Value Density** and keep the project on track.
-* **Reject the Change:** Maintain the current budget and schedule by keeping the scope locked to the original agreement.
-* **Accept the Variance:** Acknowledge that the project will now result in a budget overrun and a slipped schedule as a mathematical certainty.
-* **Increase Velocity:** Bet on a sudden, sustained increase in team output.   
-*Velocity is a trailing indicator of team health, not a dial that can be turned on command. This is almost never a viable recovery strategy.*
-
-By unifying budget, scope, and velocity into a single source of truth, the BurnedValue dashboard provides the visibility necessary for leadership to move beyond guesswork and make effective, data-driven decisions.
+**Open source — no black boxes.**
+The full application source is available for review. There are no compiled binaries, no obfuscated code, and no external SDKs that cannot be audited.
 
 ---
 
-## Configuration
+## How It Works
 
-### `.env` (local development)
+Burned Value replaces the subjective "percent complete" estimate in traditional EVMS with an objective measure derived from completed Agile story points. This eliminates the most common source of inaccurate project reporting.
 
-Copy `.env.example` to `.env` and edit the values:
+### Core Metrics
 
-```bash
-cp .env.example .env
-```
-
-| Variable | Description | Default |
+| Metric | Formula | Meaning |
 |---|---|---|
-| `SECRET_KEY` | Flask session secret — change in production | `dev-secret-...` |
-| `DATA_DIR` | Path where `projects.json` is stored | `./data` |
-| `AI_PROVIDER` | `claude` \| `ollama` \| `none` | `none` |
-| `AI_API_KEY` | Anthropic API key (Claude only) | — |
-| `AI_BASE_URL` | Ollama server URL (Ollama only) | `http://localhost:11434` |
-| `AI_MODEL` | Model name | `claude-opus-4-5` / `llama3` |
+| **Earned Value (EV)** | (Completed Points / Total Scope) × BAC | Objective value delivered in budget dollars |
+| **Actual Cost (AC)** | Labor hours × rate + non-labor costs | What was actually spent |
+| **Planned Value (PV)** | Linear projection of BAC over the period of performance | What should have been spent by now |
+| **CPI** | EV / AC | Cost efficiency — ≥ 1.0 is on or under budget |
+| **SPI** | EV / PV | Schedule efficiency — ≥ 1.0 is on or ahead of schedule |
+| **EAC** | BAC / CPI | Projected final cost at current performance |
+| **Scope Coverage Ratio** | Baseline Scope / Current Scope × 100% | Percentage of current work funded by the original budget |
 
-### `docker-compose.yml` (Docker / on-premise)
+### Scope Coverage Ratio
 
-Edit the `environment:` block directly — no separate file needed:
+When scope is added to a project without a corresponding budget increase, the original budget must cover more work. The Scope Coverage Ratio makes this dilution visible immediately:
 
-```yaml
-environment:
-  SECRET_KEY: "your-secret-here"
-  AI_PROVIDER: "ollama"
-  AI_BASE_URL: "http://your-ollama-host:11434"
-  AI_MODEL: "llama3"
-```
+- **100%** — scope is unchanged; all work is funded.
+- **< 100%** — scope has grown without additional funding. The gap represents uncompensated work that will mathematically result in a cost overrun, a schedule slip, or both.
+
+This replaces optimistic assumptions with a quantifiable early warning.
 
 ---
 
 ## Deployment
 
-### Local Development
+### Docker (Recommended for On-Premise)
+
+**Requirements:** Docker Engine 20+ and Docker Compose V2.
+
 ```bash
-cp .env.example .env   # edit AI settings if desired
+git clone https://github.com/matthewnewell/BurnedValue.git
+cd BurnedValue
+docker compose up -d
+```
+
+Visit `http://localhost:8080` (or your host's IP on port 8080).
+
+Project data persists in `./data/projects.json` on the host machine and survives container restarts and upgrades.
+
+**To update:**
+```bash
+git pull && docker compose up -d --build
+```
+
+**To expose on your internal network** (behind your firewall):
+```bash
+# In docker-compose.yml, change:
+ports:
+  - "0.0.0.0:8080:8080"
+# Then restart:
+docker compose up -d
+```
+
+For production internal deployments, placing Nginx or another reverse proxy in front of the container is recommended.
+
+### Local Development
+
+```bash
+cp .env.example .env
 pip install -r requirements.txt
 python app.py
 # Visit http://localhost:8080
 ```
 
-### Google App Engine (Cloud)
-```bash
-gcloud app deploy --project burned-value-demo
-```
-Live at: `https://burned-value-demo.uc.r.appspot.com`
+---
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `SECRET_KEY` | Flask session signing key — set a unique value in production | `dev-secret-...` |
+| `DATA_DIR` | Directory where `projects.json` is written | `./data` |
+| `AI_PROVIDER` | `claude` \| `ollama` \| `none` | `none` |
+| `AI_API_KEY` | Anthropic API key (only if `AI_PROVIDER=claude`) | — |
+| `AI_BASE_URL` | Ollama server URL (only if `AI_PROVIDER=ollama`) | `http://localhost:11434` |
+| `AI_MODEL` | Model name to use | `claude-opus-4-5` / `llama3` |
+
+Set variables in `docker-compose.yml` for Docker deployments, or in `.env` for local development.
 
 ---
 
-### Docker (On-Premise / Behind Firewall)
+## AI Integration
 
-**Requirements:** Docker Desktop or Docker Engine + Docker Compose
+The AI analyst feature is **disabled by default**. All core earned value and burndown features operate without it.
 
-#### Quick Start
-```bash
-git clone https://github.com/matthewnewell/BurnedValue.git
-cd BurnedValue
-docker compose up -d
-# Visit http://localhost:8080
+When AI is enabled, the assistant has read-only visibility into the current project's metrics and answers questions in the context of those numbers. It cannot write data.
+
+### Option A — No AI (default)
+
+```yaml
+environment:
+  AI_PROVIDER: "none"
 ```
 
-Project data is stored in `./data/projects.json` on your host machine and persists across container restarts.
+No outbound connections. No configuration required. Recommended for environments with strict egress controls.
 
-#### AI Integration
+### Option B — On-Premise AI with Ollama
 
-Burned Value supports pluggable AI backends via environment variables. Edit `docker-compose.yml` to configure:
+Run a local LLM on your own infrastructure. No data leaves your network.
 
-**Option A — Claude (Anthropic cloud):**
+```yaml
+environment:
+  AI_PROVIDER: "ollama"
+  AI_BASE_URL: "http://your-ollama-host:11434"
+  AI_MODEL: "llama3"
+```
+
+[Ollama](https://ollama.com) is an open-source tool for running large language models locally on standard server hardware. Supported models include Llama 3, Mistral, and others.
+
+### Option C — Anthropic Claude (Cloud)
+
+For organizations that have approved Anthropic's API for use:
+
 ```yaml
 environment:
   AI_PROVIDER: "claude"
@@ -148,22 +159,22 @@ environment:
   AI_API_KEY: "sk-ant-..."
 ```
 
-**Option B — Ollama (on-premise LLM):**
-```yaml
-environment:
-  AI_PROVIDER: "ollama"
-  AI_BASE_URL: "http://your-ollama-host:11434"
-  AI_MODEL: "llama3"
-```
+With this option, project metrics (not raw data files) are transmitted to Anthropic's API per their [data usage policy](https://www.anthropic.com/legal/privacy).
 
-**Option C — No AI (default):**
-```yaml
-environment:
-  AI_PROVIDER: "none"
-```
-All core EVM/burndown features work without AI. AI features will be disabled but the app runs fully.
+---
 
-#### Production Notes
-- Change `SECRET_KEY` in `docker-compose.yml` before deploying
-- To expose on your network: change `"8080:8080"` to `"0.0.0.0:8080:8080"` or put Nginx in front
-- To update: `git pull && docker compose up -d --build`
+## Production Checklist
+
+Before deploying internally:
+
+- [ ] Set a unique `SECRET_KEY` in `docker-compose.yml`
+- [ ] Confirm `AI_PROVIDER` is set to `none` or a reviewed/approved endpoint
+- [ ] Place behind a reverse proxy (Nginx, Traefik, or your organization's standard) if exposing beyond localhost
+- [ ] Restrict access to the data directory (`./data/`) on the host filesystem
+- [ ] Review `requirements.txt` against your organization's approved package list
+
+---
+
+## License
+
+MIT License. Free to use, modify, and deploy within your organization.
