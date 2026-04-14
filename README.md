@@ -7,7 +7,7 @@
 <p align="center">
   <em>Dad ran federal programs by the book — rigid waterfall, ironclad baselines, a receipt for everything.<br>
   Mom is Agile — she knew change happens and built the Release Burndown Chart to track it honestly — but never quite got around to tracking the money.<br>
-  <strong>Burned Value</strong> inherited Dad's fiscal discipline and Mom's honest accounting of real work. It knows where the money went <em>and</em> what actually got done.</em>
+  <strong>Burned Value</strong> inherited Dad's fiscal discipline and Mom's honest accounting of real work. She knows where the money went <em>and</em> what actually got done.</em>
 </p>
 
 <p align="center">
