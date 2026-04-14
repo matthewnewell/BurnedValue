@@ -74,19 +74,16 @@
     </div>
 </div>
 
-{# ── Narrative bar ── #}
-{% if narrative %}
-<div class="narrative-bar narrative-{{ narrative.status }}">
+{# ── Glimpse bar ── #}
+{% if glimpse %}
+<div class="narrative-bar narrative-{{ glimpse.status }}">
     <div class="narrative-icon">
-        {% if narrative.status == 'success' %}✅{% elif narrative.status == 'warning' %}⚡{% else %}🚨{% endif %}
+        {% if glimpse.status == 'success' %}✅{% elif glimpse.status == 'warning' %}⚡{% else %}🚨{% endif %}
     </div>
-    <div class="narrative-body">
-        <strong>{{ narrative.headline }}</strong>
-        {% if narrative.lines %}
-        <ul class="narrative-lines">
-            {% for line in narrative.lines %}<li>{{ line }}</li>{% endfor %}
-        </ul>
-        {% endif %}
+    <div class="narrative-body glimpse-body">
+        {% for sentence in glimpse.sentences %}
+        <span class="glimpse-sentence">{{ sentence }}</span>{% if not loop.last %} {% endif %}
+        {% endfor %}
     </div>
 </div>
 {% else %}

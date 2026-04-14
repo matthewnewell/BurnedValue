@@ -135,7 +135,7 @@ def dashboard(project_id):
 
     periods = project.get('periods', [])
     metrics = CalculationEngine.compute_metrics(project, periods)
-    narrative = CalculationEngine.generate_narrative(project, periods, metrics)
+    glimpse = CalculationEngine.generate_glimpse(project, periods, metrics)
     period_details = CalculationEngine.compute_period_details(project, periods)
 
     baseline_scope = project.get('baseline_scope') or 0
@@ -151,7 +151,7 @@ def dashboard(project_id):
         'dashboard.html',
         project=project,
         metrics=metrics,
-        narrative=narrative,
+        glimpse=glimpse,
         period_details=period_details,
         baseline_scope=baseline_scope,
         scope_growth=scope_growth,

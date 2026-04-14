@@ -401,6 +401,20 @@ a {
     line-height: 1.7;
 }
 
+.glimpse-body {
+    font-size: 0.9rem;
+    line-height: 1.75;
+    color: var(--text-primary);
+}
+
+.glimpse-sentence {
+    display: inline;
+}
+
+.glimpse-sentence + .glimpse-sentence::before {
+    content: " ";
+}
+
 /* ── Charts ── */
 .charts-grid {
     display: grid;

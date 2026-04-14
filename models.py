@@ -170,10 +170,92 @@ class CalculationEngine:
             return None, 0
 
     @staticmethod
+    def generate_glimpse(project, periods, metrics):
+        """
+        Produces a 2–3 sentence executive Glimpse summary.
+        Fully rule-based — no AI endpoint required.
+        Covers CPI, SPI with days-late quantification, Scope Coverage Ratio,
+        and EAC vs Contract Value (or BAC when no Contract Value is set).
+        """
+        if not periods or metrics['cpi'] == 0:
+            return None
+
+        sorted_periods = sorted(periods, key=lambda x: x['date'])
+        cpi  = metrics['cpi']
+        spi  = metrics['spi']
+        bac  = project['bac']
+        eac  = metrics['eac']
+        cv   = project.get('contract_value')
+        scr  = metrics['scope_coverage_ratio']
+        baseline_scope = project.get('baseline_scope', 0) or 0
+        total_scope    = metrics['total_scope']
+        unfunded_pts   = max(0, int(round(total_scope - baseline_scope)))
+
+        # Schedule projection (same math as burndown chart)
+        projected_end, days_slip = CalculationEngine._project_finish(
+            project, sorted_periods, metrics['avg_velocity']
+        )
+        try:
+            end_dt = datetime.strptime(project['end_date'], '%Y-%m-%d')
+            planned_end_str = end_dt.strftime('%m/%d/%Y')
+        except (ValueError, KeyError):
+            planned_end_str = None
+        projected_end_str = projected_end.strftime('%m/%d/%Y') if projected_end else None
+
+        # ── Sentence 1: Cost + Schedule ──────────────────────────────────
+        cost_word = 'under' if cpi >= 1.0 else 'over'
+        if days_slip > 0:
+            sched_clause = f"running {days_slip} days late (SPI {spi})"
+        elif days_slip < 0:
+            sched_clause = f"running {abs(days_slip)} days early (SPI {spi})"
+        else:
+            sched_clause = f"on schedule (SPI {spi})"
+
+        s1 = (f"Project is {cost_word} Budget at Completion (BAC) with a CPI of {cpi} "
+              f"and {sched_clause}.")
+
+        # ── Sentence 2: Scope Coverage Ratio ─────────────────────────────
+        if unfunded_pts > 0:
+            s2 = (f"Scope Coverage Ratio is {scr}% — only {scr}% of the current "
+                  f"{int(total_scope)}-point scope is funded by the original BAC of "
+                  f"${bac:,.0f}; the remaining {unfunded_pts} points represent "
+                  f"uncompensated scope growth.")
+        else:
+            s2 = (f"Scope Coverage Ratio is 100% — all {int(total_scope)} points are "
+                  f"funded by the original BAC of ${bac:,.0f}; no uncompensated scope growth.")
+
+        # ── Sentence 3: EAC vs Contract Value (or BAC) ───────────────────
+        if cv:
+            diff = abs(round(eac - cv, 0))
+            rel  = 'under' if eac <= cv else 'over'
+            s3   = (f"EAC is ${eac:,.0f}, which is {rel} the Contract Value of "
+                    f"${cv:,.0f} by ${diff:,.0f}.")
+        else:
+            diff = abs(round(eac - bac, 0))
+            rel  = 'under' if eac <= bac else 'over'
+            s3   = f"EAC is ${eac:,.0f}, {rel} the BAC of ${bac:,.0f} by ${diff:,.0f}."
+
+        # ── Overall status for colour coding ─────────────────────────────
+        if cpi >= 1.0 and spi >= 1.0:
+            status = 'success'
+        elif cpi >= 0.9 and spi >= 0.9:
+            status = 'warning'
+        else:
+            status = 'danger'
+
+        return {
+            'status':            status,
+            'sentences':         [s1, s2, s3],
+            'days_slip':         days_slip,
+            'projected_end_str': projected_end_str,
+            'planned_end_str':   planned_end_str,
+        }
+
+    @staticmethod
     def generate_narrative(project, periods, metrics):
         """
         Produces a plain-English interpretation of project health.
-        This is the seam where Claude API will plug in for richer AI analysis.
+        Kept for internal use by generate_bluf(); the dashboard now uses generate_glimpse().
         """
         if not periods or metrics['cpi'] == 0:
             return None
