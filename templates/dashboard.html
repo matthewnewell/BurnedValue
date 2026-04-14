@@ -590,10 +590,16 @@
                 return d;
             }
 
-            const bdLabels    = [fmtDate(data.start_date), ...labels];
-            const bdRemaining = [null, ...remaining];
-            const bdForecast  = new Array(bdLabels.length).fill(null);
-            const bdVelocity  = [null, ...velocityData];
+            // Build total-scope series (flat steps that hold the last known scope value)
+            const totalScopeData = periods.map(p => p.total_estimated_effort);
+            const lastTotalScope = totalScopeData[totalScopeData.length - 1];
+
+            const bdLabels     = [fmtDate(data.start_date), ...labels];
+            const bdRemaining  = [null, ...remaining];
+            const bdForecast   = new Array(bdLabels.length).fill(null);
+            const bdVelocity   = [null, ...velocityData];
+            // Total scope: null for start-date placeholder, then actual scope per period
+            const bdTotalScope = [null, ...totalScopeData];
 
             // Anchor forecast at last recorded point
             bdForecast[bdForecast.length - 1] = lastScope;
@@ -614,12 +620,15 @@
                     const span    = cursor - prevCursor;
                     const elapsed = endDate - prevCursor;
                     const frac    = span > 0 ? elapsed / span : 0;
+                    // forecastScope is the remaining work at prevCursor; subtract the
+                    // fraction of avg velocity that elapses by end_date (not add it).
                     const scopeAtEnd = Math.max(0,
-                        parseFloat((forecastScope + avgVelocity * (1 - frac)).toFixed(1)));
+                        parseFloat((forecastScope - avgVelocity * frac).toFixed(1)));
                     bdLabels.push(endLbl);
                     bdRemaining.push(null);
                     bdForecast.push(scopeAtEnd);
                     bdVelocity.push(null);
+                    bdTotalScope.push(lastTotalScope);   // flat at last known scope
                     popEndInserted = true;
                 }
                 forecastScope = Math.max(0, parseFloat((forecastScope - avgVelocity).toFixed(1)));
@@ -627,6 +636,7 @@
                 bdRemaining.push(null);
                 bdForecast.push(forecastScope);
                 bdVelocity.push(null);
+                bdTotalScope.push(lastTotalScope);       // flat at last known scope
                 prevCursor = new Date(cursor);
                 cursor = nextIntervalDate(cursor);
                 fCount++;
@@ -639,13 +649,15 @@
                     bdRemaining.push(null);
                     bdForecast.push(forecastScope > 0 ? forecastScope : null);
                     bdVelocity.push(null);
+                    bdTotalScope.push(lastTotalScope);   // flat at last known scope
                 }
             }
 
             buildLegend('burndownLegend', [
-                { label: 'Remaining Scope (pts)',    color: '#f0883e' },
-                { label: 'Forecast (avg velocity)',  color: '#f0883e', dash: true },
-                { label: 'Velocity (pts)',            color: '#58a6ff' }
+                { label: 'Total Scope (pts)',          color: '#8b949e', dash: true },
+                { label: 'Remaining Scope (pts)',      color: '#f0883e' },
+                { label: 'Forecast (avg velocity)',    color: '#f0883e', dash: true },
+                { label: 'Velocity (pts)',              color: '#58a6ff' }
             ]);
 
             const popLinePlugin = {
@@ -683,10 +695,16 @@
                           data: bdVelocity,
                           backgroundColor: 'rgba(88,166,255,0.3)', borderColor: '#58a6ff',
                           borderWidth: 1, yAxisID: 'yVel' },
+                        { type: 'line', label: 'Total Scope (pts)',
+                          data: bdTotalScope,
+                          borderColor: 'rgba(139,148,158,0.6)', borderDash: [4, 4],
+                          borderWidth: 1.5, pointRadius: 0, tension: 0,
+                          spanGaps: true, fill: false, yAxisID: 'yScope' },
                         { type: 'line', label: 'Remaining Scope (pts)',
                           data: bdRemaining,
                           borderColor: '#f0883e', backgroundColor: 'rgba(240,136,62,0.07)',
-                          fill: true, tension: 0, pointRadius: 5, yAxisID: 'yScope' },
+                          fill: true, tension: 0, pointRadius: 5, yAxisID: 'yScope',
+                          spanGaps: false },
                         { type: 'line', label: 'Forecast (avg velocity)',
                           data: bdForecast,
                           borderColor: '#f0883e', borderDash: [5, 5],
