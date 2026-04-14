@@ -911,7 +911,7 @@
   const messages   = document.getElementById('chatMessages');
   const input      = document.getElementById('chatInput');
   const sendBtn    = document.getElementById('chatSendBtn');
-  const appContainer = document.querySelector('.app-container');
+  const mainContent = document.querySelector('.content');
 
   let history = [];   // [{role, content}]
   let open = localStorage.getItem('chatPaneOpen') === 'true';
@@ -921,7 +921,7 @@
     localStorage.setItem('chatPaneOpen', val);
     pane.classList.toggle('chat-pane-open', val);
     toggleBtn.classList.toggle('chat-toggle-hidden', val);
-    appContainer.classList.toggle('chat-pane-active', val);
+    mainContent.classList.toggle('chat-pane-active', val);
   }
 
   setOpen(open);

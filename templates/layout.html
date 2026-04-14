@@ -11,21 +11,19 @@
 </head>
 
 <body>
-    <div class="app-container">
-        <nav class="sidebar">
-            <div class="brand">
-                <h1><a href="{{ url_for('index') }}">Burned Value 🚀</a></h1>
-            </div>
-            <ul class="nav-links">
-                <li><a href="{{ url_for('index') }}">All Projects</a></li>
-                <li><a href="{{ url_for('create_project') }}">+ New Project</a></li>
-            </ul>
-        </nav>
+    <nav class="topnav">
+        <div class="topnav-brand">
+            <a href="{{ url_for('index') }}">Burned Value 🚀</a>
+        </div>
+        <ul class="topnav-links">
+            <li><a href="{{ url_for('index') }}">All Projects</a></li>
+            <li><a href="{{ url_for('create_project') }}">+ New Project</a></li>
+        </ul>
+    </nav>
 
-        <main class="content">
-            {% block content %}{% endblock %}
-        </main>
-    </div>
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
 </body>
 
 </html>

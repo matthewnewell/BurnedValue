@@ -22,53 +22,56 @@ a {
     color: inherit;
 }
 
-.app-container {
+/* ── Top Nav ── */
+.topnav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
     display: flex;
-    min-height: 100vh;
-}
-
-/* ── Sidebar ── */
-.sidebar {
-    width: 220px;
+    align-items: center;
+    justify-content: space-between;
     background: var(--card-bg);
-    border-right: 1px solid var(--border);
-    padding: 24px 16px;
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 52px;
     flex-shrink: 0;
 }
 
-.brand h1 {
-    font-size: 1.1rem;
-    margin: 0 0 2rem 0;
+.topnav-brand a {
+    font-size: 1rem;
+    font-weight: 800;
     color: var(--accent);
+    text-decoration: none;
+    letter-spacing: -0.01em;
 }
 
-.nav-links {
+.topnav-links {
     list-style: none;
     padding: 0;
     margin: 0;
+    display: flex;
+    gap: 4px;
+    align-items: center;
 }
 
-.nav-links li {
-    margin-bottom: 4px;
-}
-
-.nav-links a {
+.topnav-links a {
     display: block;
-    padding: 8px 12px;
+    padding: 6px 12px;
     border-radius: 6px;
-    font-size: 0.9rem;
-    transition: background 0.15s;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
     color: var(--text-secondary);
+    text-decoration: none;
 }
 
-.nav-links a:hover {
+.topnav-links a:hover {
     background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
 }
 
 /* ── Main Content ── */
 .content {
-    flex: 1;
     padding: 40px;
     min-width: 0;
 }
@@ -926,36 +929,10 @@ a {
 
 /* ── Responsive ── */
 
-/* Tablet & mobile: stack sidebar on top */
+/* Tablet & mobile */
 @media (max-width: 768px) {
-    .app-container {
-        flex-direction: column;
-    }
-
-    .sidebar {
-        width: 100%;
-        box-sizing: border-box;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-        padding: 12px 16px;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
-
-    .brand h1 {
-        margin: 0;
-        white-space: nowrap;
-    }
-
-    .nav-links {
-        display: flex;
-        flex-direction: row;
-        gap: 4px;
-    }
-
-    .nav-links li {
-        margin-bottom: 0;
+    .topnav {
+        padding: 0 16px;
     }
 
     .content {
@@ -1042,11 +1019,6 @@ a {
         font-size: 1.5rem;
     }
 
-    /* Sidebar nav: wrap if needed */
-    .sidebar {
-        flex-wrap: wrap;
-    }
-
     /* Tooltip: keep within viewport */
     .tooltip-text {
         width: 200px;
@@ -1058,7 +1030,7 @@ a {
 /* ── AI Chat Pane ──────────────────────────────────────────────────────────── */
 
 /* When pane is open, shrink main content */
-.app-container.chat-pane-active .content {
+.chat-pane-active.content {
     margin-right: 360px;
     transition: margin-right 0.3s ease;
 }
