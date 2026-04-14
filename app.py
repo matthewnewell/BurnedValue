@@ -173,10 +173,6 @@ def add_period(project_id):
             baseline = float(request.form.get('baseline_scope', 0) or 0)
             project['baseline_scope'] = baseline
             scope_delta = 0.0
-            total_scope = baseline
-        else:
-            prev_total = project['periods'][-1]['total_estimated_effort']
-            total_scope = prev_total + scope_delta
 
         period = Period(
             date=request.form['date'],
@@ -184,7 +180,6 @@ def add_period(project_id):
             labor_hours=float(request.form.get('labor_hours', 0)),
             labor_rate=float(request.form.get('labor_rate', 0)),
             non_labor_cost=float(request.form.get('non_labor', 0)),
-            total_scope=total_scope,
             scope_delta=scope_delta
         )
         project['periods'].append(period.to_dict())
@@ -223,30 +218,18 @@ def edit_period(project_id, period_id):
     if request.method == 'POST':
         scope_delta = float(request.form.get('scope_delta', 0) or 0)
 
-        # Recompute total_scope for this period: baseline + sum of all other deltas + this delta
-        baseline = project.get('baseline_scope', 0.0)
-        other_deltas = sum(
-            p.get('scope_delta', 0) for p in project['periods']
-            if p.get('period_id') != period_id
-               and p['date'] <= period_data['date']   # only periods up to this one
-        )
-        total_scope = baseline + other_deltas + scope_delta
-
         updated = Period(
             date=request.form['date'],
             points_completed=float(request.form['points']),
             labor_hours=float(request.form.get('labor_hours', 0)),
             labor_rate=float(request.form.get('labor_rate', 0)),
             non_labor_cost=float(request.form.get('non_labor', 0)),
-            total_scope=total_scope,
             scope_delta=scope_delta,
             period_id=period_id
         )
         idx = next(i for i, p in enumerate(project['periods']) if p.get('period_id') == period_id)
         project['periods'][idx] = updated.to_dict()
 
-        # Recompute total_estimated_effort for all periods after a delta change
-        utils.recompute_scope(project)
         save_project_for_request(project_id, project)
         return redirect(url_for('dashboard', project_id=project_id))
 

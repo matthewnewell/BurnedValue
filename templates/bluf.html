@@ -442,10 +442,12 @@
             const endDt   = new Date(data.end_date   + 'T00:00:00Z');
             const totalMs = endDt - startDt;
 
+            let runningScope = data.baseline_scope || 0;
             periods.forEach(p => {
+                runningScope += (p.scope_delta || 0);
                 cumAC  += p.actual_cost;
                 cumPts += p.points_completed;
-                const scope = p.total_estimated_effort || 1;
+                const scope = runningScope || 1;
                 const pct   = cumPts / scope;
                 const ev    = pct * bac;
                 const cpi   = cumAC > 0 ? ev / cumAC : 0;
@@ -518,10 +520,12 @@
             }
 
             let cumPtsBd = 0;
+            let bdRunningScope = data.baseline_scope || 0;
             const remaining = [], velocityData = [], bdBaseLabels = [];
             periods.forEach(p => {
+                bdRunningScope += (p.scope_delta || 0);
                 cumPtsBd += p.points_completed;
-                remaining.push(p.total_estimated_effort - cumPtsBd);
+                remaining.push(bdRunningScope - cumPtsBd);
                 velocityData.push(p.points_completed);
                 bdBaseLabels.push(fmtDate(p.date));
             });

@@ -34,15 +34,15 @@ def _build_demo_project():
         "baseline_scope": 200.0,
         "periods": [
             # Strong start — efficient delivery, AC well below EV, cpp well under VD
-            {"period_id": pids[0], "date": d(2),  "scope_delta":  0, "points_completed": 32, "labor_hours": 360, "labor_rate": 40, "non_labor_cost": 1600, "actual_cost": 16000, "total_estimated_effort": 200},
-            {"period_id": pids[1], "date": d(4),  "scope_delta":  0, "points_completed": 28, "labor_hours": 360, "labor_rate": 40, "non_labor_cost": 1600, "actual_cost": 16000, "total_estimated_effort": 200},
+            {"period_id": pids[0], "date": d(2),  "scope_delta":  0, "points_completed": 32, "labor_hours": 360, "labor_rate": 40, "non_labor_cost": 1600, "actual_cost": 16000},
+            {"period_id": pids[1], "date": d(4),  "scope_delta":  0, "points_completed": 28, "labor_hours": 360, "labor_rate": 40, "non_labor_cost": 1600, "actual_cost": 16000},
             # Scope creep +40 — VD steps down, costs rise, team absorbs it
-            {"period_id": pids[2], "date": d(6),  "scope_delta": 40, "points_completed": 22, "labor_hours": 460, "labor_rate": 40, "non_labor_cost": 3600, "actual_cost": 22000, "total_estimated_effort": 240},
+            {"period_id": pids[2], "date": d(6),  "scope_delta": 40, "points_completed": 22, "labor_hours": 460, "labor_rate": 40, "non_labor_cost": 3600, "actual_cost": 22000},
             # Scope creep +70 — VD drops sharply to $806/pt; cumulative cpp still under
-            {"period_id": pids[3], "date": d(8),  "scope_delta": 70, "points_completed": 20, "labor_hours": 420, "labor_rate": 40, "non_labor_cost": 3200, "actual_cost": 20000, "total_estimated_effort": 310},
-            {"period_id": pids[4], "date": d(10), "scope_delta":  0, "points_completed": 22, "labor_hours": 420, "labor_rate": 40, "non_labor_cost": 3200, "actual_cost": 20000, "total_estimated_effort": 310},
+            {"period_id": pids[3], "date": d(8),  "scope_delta": 70, "points_completed": 20, "labor_hours": 420, "labor_rate": 40, "non_labor_cost": 3200, "actual_cost": 20000},
+            {"period_id": pids[4], "date": d(10), "scope_delta":  0, "points_completed": 22, "labor_hours": 420, "labor_rate": 40, "non_labor_cost": 3200, "actual_cost": 20000},
             # Final scope hit +15 — VD drops to $769/pt; cumulative cpp ($793) tips above it → red bar
-            {"period_id": pids[5], "date": d(12), "scope_delta": 15, "points_completed": 21, "labor_hours": 440, "labor_rate": 40, "non_labor_cost": 3400, "actual_cost": 21000, "total_estimated_effort": 325},
+            {"period_id": pids[5], "date": d(12), "scope_delta": 15, "points_completed": 21, "labor_hours": 440, "labor_rate": 40, "non_labor_cost": 3400, "actual_cost": 21000},
         ]
     }
 
@@ -138,16 +138,11 @@ def generate_intervals(project):
 
 def recompute_scope(project):
     """
-    After any scope_delta change, recompute total_estimated_effort for all periods
-    in chronological order: baseline + cumulative deltas.
-    Mutates project['periods'] in place.
+    Formerly rewrote total_estimated_effort on every period.
+    Scope is now computed dynamically from baseline_scope + cumulative scope_delta,
+    so this function is a no-op and will be removed in a future cleanup.
     """
-    baseline = project.get('baseline_scope', 0.0)
-    periods = sorted(project['periods'], key=lambda x: x['date'])
-    running = baseline
-    for p in periods:
-        running += p.get('scope_delta', 0.0)
-        p['total_estimated_effort'] = running
+    pass
 
 
 def _backfill_period_ids(project):

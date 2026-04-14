@@ -418,7 +418,8 @@
             const periods = data.periods.sort((a, b) => new Date(a.date) - new Date(b.date));
             if (!periods.length) return;
             const bac          = data.bac;
-            const initialScope = periods[0].total_estimated_effort || 1;
+            const initialScope = data.baseline_scope || 1;
+            let runningScope = data.baseline_scope || 0;
             const totalDur     = endDate - startDate;
 
             // ── Single pass: build every series at once ────────────────────
@@ -432,9 +433,10 @@
             let cumAC = 0, cumPts = 0, baseVD = null;
 
             periods.forEach(p => {
+                runningScope += (p.scope_delta || 0);
                 cumPts += p.points_completed;
                 cumAC  += p.actual_cost;
-                const scope = p.total_estimated_effort || 1;
+                const scope = runningScope || 1;
 
                 const ev  = (cumPts / scope) * bac;
                 const pv  = linearPV(p.date, bac);
@@ -591,7 +593,9 @@
             }
 
             // Build total-scope series (flat steps that hold the last known scope value)
-            const totalScopeData = periods.map(p => p.total_estimated_effort);
+            // Compute running scope per period from baseline + cumulative scope_deltas
+            const totalScopeData = [];
+            { let s = data.baseline_scope || 0; periods.forEach(p => { s += (p.scope_delta || 0); totalScopeData.push(s); }); }
             const lastTotalScope = totalScopeData[totalScopeData.length - 1];
 
             const bdLabels     = [fmtDate(data.start_date), ...labels];

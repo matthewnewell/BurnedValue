@@ -16,7 +16,7 @@ class CalculationEngine:
                 "actual_cost_per_point": 0,
                 "avg_velocity": 0,
                 "percent_complete": 0,
-                "total_points": 0,
+                "completed_points": 0,
                 "total_scope": 0
             }
 
@@ -25,7 +25,8 @@ class CalculationEngine:
         total_ac = sum(p['actual_cost'] for p in sorted_periods)
         total_points_completed = sum(p['points_completed'] for p in sorted_periods)
 
-        current_total_scope = sorted_periods[-1]['total_estimated_effort']
+        baseline = project.get('baseline_scope', 0.0) or 0.0
+        current_total_scope = baseline + sum(p.get('scope_delta', 0.0) for p in sorted_periods)
         if current_total_scope == 0:
             current_total_scope = 1
 
@@ -78,7 +79,7 @@ class CalculationEngine:
             "actual_cost_per_point": round(total_ac / total_points_completed, 2) if total_points_completed > 0 else 0,
             "avg_velocity": round(total_points_completed / len(sorted_periods), 1),
             "percent_complete": round(percent_complete * 100, 1),
-            "total_points": total_points_completed,
+            "completed_points": total_points_completed,
             "total_scope": current_total_scope
         }
 
@@ -96,10 +97,14 @@ class CalculationEngine:
         cum_ac = 0.0
         cum_points = 0.0
 
+        baseline = project.get('baseline_scope', 0.0) or 0.0
+        running_scope = baseline
+
         for i, p in enumerate(sorted_periods):
+            running_scope += p.get('scope_delta', 0.0)
             cum_ac += p['actual_cost']
             cum_points += p['points_completed']
-            scope = p['total_estimated_effort'] if p['total_estimated_effort'] > 0 else 1
+            scope = running_scope if running_scope > 0 else 1
 
             percent = cum_points / scope
             ev = percent * project['bac']
@@ -108,13 +113,8 @@ class CalculationEngine:
             scope_coverage_ratio = round((baseline_scope / scope) * 100, 1)
             budget_per_point = round(project['bac'] / scope, 2)
 
-            scope_delta = 0
-            scope_changed = False
-            if i > 0:
-                prev_scope = sorted_periods[i - 1]['total_estimated_effort']
-                if scope != prev_scope:
-                    scope_changed = True
-                    scope_delta = int(scope - prev_scope)
+            scope_delta = p.get('scope_delta', 0.0)
+            scope_changed = scope_delta != 0
 
             details.append({
                 'period_id': p.get('period_id', ''),
@@ -153,7 +153,8 @@ class CalculationEngine:
                 interval_days = interval_size
 
             cum_pts       = sum(p['points_completed'] for p in sorted_periods)
-            last_scope    = sorted_periods[-1]['total_estimated_effort']
+            baseline_scope = project.get('baseline_scope', 0.0) or 0.0
+            last_scope = baseline_scope + sum(p.get('scope_delta', 0.0) for p in sorted_periods)
             remaining     = last_scope - cum_pts
             last_dt       = datetime.strptime(sorted_periods[-1]['date'], '%Y-%m-%d')
             end_dt        = datetime.strptime(project['end_date'], '%Y-%m-%d')
@@ -181,17 +182,18 @@ class CalculationEngine:
 
         # Detect scope creep events
         scope_creep_events = []
-        initial_scope = sorted_periods[0]['total_estimated_effort']
-        for i in range(1, len(sorted_periods)):
-            prev = sorted_periods[i - 1]['total_estimated_effort']
-            curr = sorted_periods[i]['total_estimated_effort']
-            if curr > prev:
-                pct = round((curr - prev) / prev * 100, 1)
+        initial_scope = project.get('baseline_scope', 0.0) or 0.0
+        running_scope = initial_scope
+        for p in sorted_periods:
+            delta = p.get('scope_delta', 0.0)
+            if delta > 0:
+                pct = round(delta / running_scope * 100, 1) if running_scope > 0 else 0
                 scope_creep_events.append({
-                    'date': sorted_periods[i]['date'],
-                    'added': int(curr - prev),
+                    'date': p['date'],
+                    'added': int(delta),
                     'pct': pct
                 })
+            running_scope += delta
 
         cpi = metrics['cpi']
         spi = metrics['spi']
@@ -287,16 +289,17 @@ class CalculationEngine:
 
         # ── Scope creep ──────────────────────────────────────────────────
         scope_creep_events = []
-        initial_scope = sorted_periods[0]['total_estimated_effort']
-        for i in range(1, len(sorted_periods)):
-            prev = sorted_periods[i - 1]['total_estimated_effort']
-            curr = sorted_periods[i]['total_estimated_effort']
-            if curr > prev:
+        initial_scope = project.get('baseline_scope', 0.0) or 0.0
+        running_scope = initial_scope
+        for p in sorted_periods:
+            delta = p.get('scope_delta', 0.0)
+            if delta > 0:
                 scope_creep_events.append({
-                    'date': sorted_periods[i]['date'],
-                    'added': int(curr - prev),
-                    'pct': round((curr - prev) / prev * 100, 1)
+                    'date': p['date'],
+                    'added': int(delta),
+                    'pct': round(delta / running_scope * 100, 1) if running_scope > 0 else 0
                 })
+            running_scope += delta
 
         total_scope_added = sum(e['added'] for e in scope_creep_events)
         current_scope     = metrics['total_scope']
@@ -327,10 +330,13 @@ class CalculationEngine:
         cum_ac_t = 0.0
         cum_pt_t = 0.0
         cpis_over_time = []
+        bluf_baseline = project.get('baseline_scope', 0.0) or 0.0
+        bluf_running_scope = bluf_baseline
         for p in sorted_periods:
+            bluf_running_scope += p.get('scope_delta', 0.0)
             cum_ac_t += p['actual_cost']
             cum_pt_t += p['points_completed']
-            sc = p['total_estimated_effort'] or 1
+            sc = bluf_running_scope or 1
             ev_t = (cum_pt_t / sc) * bac
             cpis_over_time.append(round(ev_t / cum_ac_t, 2) if cum_ac_t else 0)
 
@@ -552,7 +558,7 @@ class Project:
 
 class Period:
     def __init__(self, date, points_completed, labor_hours=0, labor_rate=0,
-                 non_labor_cost=0, total_scope=0, scope_delta=0, period_id=None):
+                 non_labor_cost=0, scope_delta=0, period_id=None):
         import uuid
         self.period_id = period_id or str(uuid.uuid4())
         self.date = date
@@ -561,7 +567,6 @@ class Period:
         self.labor_rate = float(labor_rate)
         self.non_labor_cost = float(non_labor_cost)
         self.scope_delta = float(scope_delta)
-        self.total_estimated_effort = float(total_scope)
         self.actual_cost = (self.labor_hours * self.labor_rate) + self.non_labor_cost
 
     def to_dict(self):
@@ -573,6 +578,5 @@ class Period:
             "labor_rate": self.labor_rate,
             "non_labor_cost": self.non_labor_cost,
             "actual_cost": self.actual_cost,
-            "scope_delta": self.scope_delta,
-            "total_estimated_effort": self.total_estimated_effort
+            "scope_delta": self.scope_delta
         }
