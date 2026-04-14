@@ -3,7 +3,9 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, a
 from models import CalculationEngine, Period
 import utils
 import uuid
+import json
 from datetime import datetime
+import ai_client
 
 app = Flask(__name__)
 # Set SECRET_KEY env var in production. The default is fine for local dev.
@@ -305,6 +307,57 @@ def delete_project(project_id):
 def project_api(project_id):
     project = get_project_for_request(project_id)
     return jsonify(project)
+
+
+@app.route('/project/<project_id>/chat', methods=['POST'])
+def project_chat(project_id):
+    """AI chat endpoint — receives conversation history, returns AI reply."""
+    project = get_project_for_request(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    body     = request.get_json(force=True)
+    messages = body.get("messages", [])
+    if not messages:
+        return jsonify({"error": "No messages provided"}), 400
+
+    # Build rich project context for the AI
+    periods  = project.get("periods", [])
+    metrics  = CalculationEngine.compute_metrics(project, periods)
+    details  = CalculationEngine.compute_period_details(project, periods)
+
+    context = {
+        "name":           project.get("name"),
+        "description":    project.get("description"),
+        "bac":            project.get("bac"),
+        "contract_value": project.get("contract_value"),
+        "start_date":     project.get("start_date"),
+        "end_date":       project.get("end_date"),
+        "baseline_scope": project.get("baseline_scope"),
+        "metrics":        metrics,
+        "periods":        periods,
+        "period_details": details,
+    }
+
+    system = f"""You are an expert project governance analyst embedded in the Burned Value dashboard.
+Burned Value combines EVMS (Earned Value Management) with Agile Release Burndown.
+
+Key concepts:
+- CPI (Cost Performance Index): EV / AC. <1.0 = over budget, >1.0 = under budget.
+- SPI (Schedule Performance Index): EV / PV. <1.0 = behind schedule.
+- EAC (Estimate at Completion): projected final cost.
+- Value Density: BAC / Total Scope Points. Drops when scope grows without budget increase.
+- Percent Complete: Completed Points / Total Scope Points.
+
+Current project data (JSON):
+{json.dumps(context, indent=2, default=str)}
+
+Answer the operator's questions about this project clearly and concisely.
+Use specific numbers from the data. Flag risks proactively.
+When asked to update data, describe exactly what change you would make — data write capability is coming soon."""
+
+    reply = ai_client.chat(messages=messages, system=system)
+    return jsonify({"reply": reply, "provider": ai_client.AI_PROVIDER})
 
 
 if __name__ == '__main__':

@@ -71,10 +71,44 @@ By unifying budget, scope, and velocity into a single source of truth, the Burne
 
 ---
 
+## Configuration
+
+### `.env` (local development)
+
+Copy `.env.example` to `.env` and edit the values:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Description | Default |
+|---|---|---|
+| `SECRET_KEY` | Flask session secret — change in production | `dev-secret-...` |
+| `DATA_DIR` | Path where `projects.json` is stored | `./data` |
+| `AI_PROVIDER` | `claude` \| `ollama` \| `none` | `none` |
+| `AI_API_KEY` | Anthropic API key (Claude only) | — |
+| `AI_BASE_URL` | Ollama server URL (Ollama only) | `http://localhost:11434` |
+| `AI_MODEL` | Model name | `claude-opus-4-5` / `llama3` |
+
+### `docker-compose.yml` (Docker / on-premise)
+
+Edit the `environment:` block directly — no separate file needed:
+
+```yaml
+environment:
+  SECRET_KEY: "your-secret-here"
+  AI_PROVIDER: "ollama"
+  AI_BASE_URL: "http://your-ollama-host:11434"
+  AI_MODEL: "llama3"
+```
+
+---
+
 ## Deployment
 
 ### Local Development
 ```bash
+cp .env.example .env   # edit AI settings if desired
 pip install -r requirements.txt
 python app.py
 # Visit http://localhost:8080
