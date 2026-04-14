@@ -155,25 +155,35 @@
         </div>
     </div>
 
-    <div class="card kpi {{ 'danger' if metrics.actual_cost_per_point > metrics.value_density else ('success' if metrics.actual_cost_per_point > 0 else '') }}">
+    {% if metrics.scope_coverage_ratio >= 90 %}
+        {% set scr_class = 'success' %}
+    {% elif metrics.scope_coverage_ratio >= 70 %}
+        {% set scr_class = 'warning' %}
+    {% elif metrics.scope_coverage_ratio > 0 %}
+        {% set scr_class = 'danger' %}
+    {% else %}
+        {% set scr_class = '' %}
+    {% endif %}
+    <div class="card kpi {{ scr_class }}">
         <label>
-            Value Density (VD)
+            Scope Coverage Ratio
             <span class="tooltip-wrapper">
                 <span class="tooltip-icon">?</span>
                 <span class="tooltip-text">
-                    <strong>The Exchange Rate</strong><br>
-                    The dollar value of each story point.<br><br>
-                    Value Density = BAC ÷ Total Scope<br><br>
-                    When scope is added without increasing the budget, this rate drops. Every point you've already completed is now "worth less." This is the mathematical cost of unfunded scope creep.
+                    Percentage of current scope covered by original budget.<br><br>
+                    Scope Coverage Ratio = Baseline Scope ÷ Current Total Scope × 100%<br><br>
+                    100% = scope unchanged ✅<br>
+                    &lt; 100% = scope grew without budget increase (risk) ⚠️<br><br>
+                    Below 100% indicates uncompensated scope growth.
                 </span>
             </span>
         </label>
-        <div class="value">${{ "{:,.2f}".format(metrics.value_density) }}<span style="font-size:1rem; font-weight:400">/pt</span></div>
+        <div class="value">{{ "{:.1f}".format(metrics.scope_coverage_ratio) }}%</div>
         <div class="sub">
             {% if scope_growth > 0 %}
             {{ scope_growth|int }} pts of unfunded scope — {{ (scope_growth / metrics.avg_velocity)|round(1) }} intervals to absorb at current velocity
             {% else %}
-            budget per story point
+            scope unchanged from baseline
             {% endif %}
         </div>
     </div>
@@ -256,7 +266,7 @@
 
 <div class="charts-grid" style="margin-top: 20px;">
     <div class="card chart-container" data-chart="vd">
-        <h3>💎 Value Density — The False Hope</h3>
+        <h3>💎 Scope Coverage Ratio — Budget vs. Scope Growth</h3>
         <p class="chart-caption">Each bar is the estimated cost per point at the current budget — it steps down every time scope is added without funding. The teal line is what each point actually costs. When the line rises above a bar, that period is in overrun. Team velocity is grounded in past performance and cannot be willed higher. Adding scope without funding means the same dollars must cover more work — the result is a cost overrun, a schedule slip, or both.</p>
         <div id="vdLegend" class="html-legend"></div>
         <canvas id="vdChart"></canvas>
@@ -290,7 +300,7 @@
                     <th>Status</th>
                     <th>Velocity</th>
                     <th>Scope Delta</th>
-                    <th>Value Density</th>
+                    <th>Scope Coverage Ratio</th>
                     <th>Period AC</th>
                     <th>Cum. AC</th>
                     <th>EV</th>
@@ -319,9 +329,9 @@
                         <td>{{ row.period_points|int if row else '—' }}</td>
                         <td>{{ ('+' ~ row.scope_delta|int) if row and row.scope_delta > 0 else ('—' if not row else '0') }}</td>
                         {% if row %}
-                            {% set acpp = row.cum_ac / row.cum_points if row.cum_points > 0 else 0 %}
-                            <td style="color: {{ 'var(--danger)' if acpp > row.value_density else 'var(--success)' }}">
-                                ${{ '{:,.2f}'.format(row.value_density) }}
+                            {% set scr = row.scope_coverage_ratio %}
+                            <td style="color: {{ 'var(--danger)' if scr < 70 else ('var(--warning)' if scr < 90 else 'var(--success)') }}">
+                                {{ '{:.1f}'.format(scr) }}%
                             </td>
                         {% else %}
                             <td>—</td>
@@ -703,10 +713,10 @@
                 }
             });
 
-            // ── Chart 3: Value Density — The False Hope ────────────────────
-            // Bars = shrinking budget per point (VD). Shorter bars = scope creep dilution.
+            // ── Chart 3: Scope Coverage Ratio — Budget vs. Scope Growth ──────
+            // Bars = shrinking budget per point. Shorter bars = scope creep dilution.
             // Line = actual $/pt earned. When the line rises above a bar → that period is in overrun.
-            // The trap: team velocity is fixed, but VD keeps dropping. Overrun is mathematical.
+            // The trap: team velocity is fixed, but budget/pt keeps dropping. Overrun is mathematical.
             const vdBarColors = vdData.map((vd, i) =>
                 costPerPt[i] > vd ? 'rgba(248,81,73,0.8)' : 'rgba(63,185,80,0.7)'
             );
@@ -715,9 +725,9 @@
             );
 
             buildLegend('vdLegend', [
-                { label: 'Estimated Cost per Point — within budget', color: '#3fb950' },
-                { label: 'Estimated Cost per Point — overrun',       color: '#f85149' },
-                { label: 'Actual $/pt',                               color: '#4db6ac' }
+                { label: 'Budget per Point — within budget (SCR ≥ 90%)', color: '#3fb950' },
+                { label: 'Budget per Point — overrun (SCR < 90%)',        color: '#f85149' },
+                { label: 'Actual $/pt',                                    color: '#4db6ac' }
             ]);
 
             chartInstances['vd'] = new Chart(document.getElementById('vdChart'), {
@@ -837,8 +847,8 @@
                 summary: 'How much work remains, and how fast it\'s disappearing. Each downward slope is progress. Upward jumps are scope additions — work added faster than it\'s completed. Velocity bars show per-interval throughput. The dashed forecast extrapolates current team velocity forward. If it doesn\'t reach zero by the deadline, the project is at risk of not completing on time.'
             },
             vd: {
-                title: '💎 Value Density — The False Hope',
-                summary: 'The budget per story point — and how scope creep quietly erodes it. Every time scope grows without a matching budget increase, each point becomes worth less. Green bars show what each point should cost when within budget; red bars signal overrun periods. The teal line shows the actual cost per point delivered. When it rises above a bar, that interval spent more than it was worth. This is the mathematical inevitability of unfunded scope creep.'
+                title: '💎 Scope Coverage Ratio — Budget vs. Scope Growth',
+                summary: 'Scope Coverage Ratio = Baseline Scope ÷ Current Total Scope, expressed as a percentage. 100% means scope is unchanged and the original budget covers all planned work. Below 100% means scope grew without a matching budget increase — each story point is now worth less. Green bars show intervals within budget; red bars signal overrun. The teal line shows the actual cost per point delivered. When it rises above a bar, that interval spent more than it was worth. This is the mathematical inevitability of unfunded scope creep.'
             },
             cpispi: {
                 title: '📈 Performance Indices — CPI & SPI',

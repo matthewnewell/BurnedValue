@@ -11,7 +11,8 @@ class CalculationEngine:
                 "ev": 0, "ac": 0, "pv": 0,
                 "cpi": 0, "spi": 0, "eac": 0,
                 "bac": project['bac'],
-                "value_density": 0,
+                "scope_coverage_ratio": 100.0,
+                "budget_per_point": 0,
                 "actual_cost_per_point": 0,
                 "avg_velocity": 0,
                 "percent_complete": 0,
@@ -28,8 +29,11 @@ class CalculationEngine:
         if current_total_scope == 0:
             current_total_scope = 1
 
-        # Value Density: the dollar exchange rate per point
-        value_density = project['bac'] / current_total_scope
+        # Scope Coverage Ratio: percentage of current scope covered by original budget
+        baseline_scope = project.get('baseline_scope') or current_total_scope
+        scope_coverage_ratio = round((baseline_scope / current_total_scope) * 100, 1)
+        # budget_per_point: non-user-facing, BAC / total scope (formerly "value_density")
+        budget_per_point = project['bac'] / current_total_scope
 
         # Earned Value
         percent_complete = total_points_completed / current_total_scope
@@ -69,7 +73,8 @@ class CalculationEngine:
             "spi": round(spi, 2),
             "eac": round(eac, 2),
             "bac": project['bac'],
-            "value_density": round(value_density, 2),
+            "scope_coverage_ratio": scope_coverage_ratio,
+            "budget_per_point": round(budget_per_point, 2),
             "actual_cost_per_point": round(total_ac / total_points_completed, 2) if total_points_completed > 0 else 0,
             "avg_velocity": round(total_points_completed / len(sorted_periods), 1),
             "percent_complete": round(percent_complete * 100, 1),
@@ -99,7 +104,9 @@ class CalculationEngine:
             percent = cum_points / scope
             ev = percent * project['bac']
             cpi = round(ev / cum_ac, 2) if cum_ac > 0 else 0
-            value_density = round(project['bac'] / scope, 2)
+            baseline_scope = project.get('baseline_scope') or scope
+            scope_coverage_ratio = round((baseline_scope / scope) * 100, 1)
+            budget_per_point = round(project['bac'] / scope, 2)
 
             scope_delta = 0
             scope_changed = False
@@ -117,7 +124,8 @@ class CalculationEngine:
                 'scope': scope,
                 'scope_delta': scope_delta,
                 'scope_changed': scope_changed,
-                'value_density': value_density,
+                'scope_coverage_ratio': scope_coverage_ratio,
+                'budget_per_point': budget_per_point,
                 'period_ac': p['actual_cost'],
                 'cum_ac': round(cum_ac, 2),
                 'ev': round(ev, 2),
@@ -191,7 +199,7 @@ class CalculationEngine:
         bac = project['bac']
         overrun = round(eac - bac, 2)
         initial_vd = round(bac / initial_scope, 2)
-        current_vd = metrics['value_density']
+        current_vd = metrics['budget_per_point']
         vd_dilution_pct = round((initial_vd - current_vd) / initial_vd * 100, 1) if initial_vd > 0 else 0
 
         # Schedule slip projection — same math as the burndown chart
@@ -232,8 +240,8 @@ class CalculationEngine:
             lines.append(f"{len(scope_creep_events)} scope creep event(s): {', '.join(event_strs)}.")
         if vd_dilution_pct > 0:
             lines.append(
-                f"Value Density diluted from ${initial_vd:,.0f}/pt \u2192 ${current_vd:,.0f}/pt "
-                f"({vd_dilution_pct}% loss in point value)."
+                f"Scope Coverage Ratio has dropped — budget per point eroded from ${initial_vd:,.0f}/pt "
+                f"\u2192 ${current_vd:,.0f}/pt ({vd_dilution_pct}% loss in point value)."
             )
         if overrun > 0:
             lines.append(f"At current CPI, EAC is ${eac:,.0f} \u2014 ${overrun:,.0f} over the ${bac:,.0f} budget.")
@@ -294,7 +302,7 @@ class CalculationEngine:
         current_scope     = metrics['total_scope']
         scope_growth_pct  = round(total_scope_added / initial_scope * 100, 1) if initial_scope else 0
         initial_vd        = round(bac / initial_scope, 2) if initial_scope else 0
-        current_vd        = metrics['value_density']
+        current_vd        = metrics['budget_per_point']
         vd_dilution_pct   = round((initial_vd - current_vd) / initial_vd * 100, 1) if initial_vd else 0
 
         # ── Budget ───────────────────────────────────────────────────────
@@ -425,13 +433,13 @@ class CalculationEngine:
                 f"Scope has grown {scope_growth_pct}% above baseline — from {int(initial_scope)} to "
                 f"{int(current_scope)} story points — across {len(scope_creep_events)} unplanned "
                 f"addition(s): {', '.join(event_strs)}. None of these additions were accompanied by a "
-                f"budget increase. Value Density has eroded {vd_dilution_pct}%: each story point worth "
+                f"budget increase. Scope Coverage Ratio has eroded {vd_dilution_pct}%: each story point worth "
                 f"${initial_vd:,.2f} at project start is now worth ${current_vd:,.2f}."
             )
         else:
             scope_narrative = (
                 f"Scope has held at baseline ({int(initial_scope)} story points) with no unplanned additions. "
-                f"Value Density is stable at ${current_vd:,.2f}/pt. This is a meaningful positive signal — "
+                f"Scope Coverage Ratio is stable at 100% (${current_vd:,.2f}/pt). This is a meaningful positive signal — "
                 f"disciplined scope management is protecting both budget and schedule."
             )
 
@@ -454,7 +462,7 @@ class CalculationEngine:
             )
         if vd_dilution_pct > 15:
             risks.append(
-                f"Value Density eroded {vd_dilution_pct}%: each point is now worth "
+                f"Scope Coverage Ratio eroded {vd_dilution_pct}%: budget per point is now "
                 f"${current_vd:,.2f}, down from ${initial_vd:,.2f} at project start."
             )
         if cpi_trend == 'degrading' and cpi < 1.0:

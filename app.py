@@ -351,7 +351,8 @@ Key concepts:
 - CPI (Cost Performance Index): EV / AC. <1.0 = over budget, >1.0 = under budget.
 - SPI (Schedule Performance Index): EV / PV. <1.0 = behind schedule.
 - EAC (Estimate at Completion): projected final cost.
-- Value Density: BAC / Total Scope Points. Drops when scope grows without budget increase.
+- Scope Coverage Ratio: Baseline Scope / Current Total Scope × 100%. 100% = scope unchanged; below 100% means scope grew without a budget increase (uncompensated scope growth). ≥90% green, 70-89% yellow, <70% red.
+- budget_per_point: BAC / Total Scope Points (non-display field, used internally for $/pt calculations).
 - Percent Complete: Completed Points / Total Scope Points.
 
 Current project data (JSON):
