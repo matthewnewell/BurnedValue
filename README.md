@@ -67,4 +67,69 @@ Unfunded scope is a mathematical dilution of value; maintaining project integrit
 * **Increase Velocity:** Bet on a sudden, sustained increase in team output.   
 *Velocity is a trailing indicator of team health, not a dial that can be turned on command. This is almost never a viable recovery strategy.*
 
-By unifying budget, scope, and velocity into a single source of truth, the BurnedValue dashboard provides the visibility necessary for leadership to move beyond guesswork and make effective, data-driven decisions. 
+By unifying budget, scope, and velocity into a single source of truth, the BurnedValue dashboard provides the visibility necessary for leadership to move beyond guesswork and make effective, data-driven decisions.
+
+---
+
+## Deployment
+
+### Local Development
+```bash
+pip install -r requirements.txt
+python app.py
+# Visit http://localhost:8080
+```
+
+### Google App Engine (Cloud)
+```bash
+gcloud app deploy --project burned-value-demo
+```
+Live at: `https://burned-value-demo.uc.r.appspot.com`
+
+---
+
+### Docker (On-Premise / Behind Firewall)
+
+**Requirements:** Docker Desktop or Docker Engine + Docker Compose
+
+#### Quick Start
+```bash
+git clone https://github.com/matthewnewell/BurnedValue.git
+cd BurnedValue
+docker compose up -d
+# Visit http://localhost:8080
+```
+
+Project data is stored in `./data/projects.json` on your host machine and persists across container restarts.
+
+#### AI Integration
+
+Burned Value supports pluggable AI backends via environment variables. Edit `docker-compose.yml` to configure:
+
+**Option A — Claude (Anthropic cloud):**
+```yaml
+environment:
+  AI_PROVIDER: "claude"
+  AI_MODEL: "claude-opus-4-5"
+  AI_API_KEY: "sk-ant-..."
+```
+
+**Option B — Ollama (on-premise LLM):**
+```yaml
+environment:
+  AI_PROVIDER: "ollama"
+  AI_BASE_URL: "http://your-ollama-host:11434"
+  AI_MODEL: "llama3"
+```
+
+**Option C — No AI (default):**
+```yaml
+environment:
+  AI_PROVIDER: "none"
+```
+All core EVM/burndown features work without AI. AI features will be disabled but the app runs fully.
+
+#### Production Notes
+- Change `SECRET_KEY` in `docker-compose.yml` before deploying
+- To expose on your network: change `"8080:8080"` to `"0.0.0.0:8080:8080"` or put Nginx in front
+- To update: `git pull && docker compose up -d --build`
