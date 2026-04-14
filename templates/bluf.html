@@ -254,15 +254,17 @@
 <div class="bluf-wrap">
 
     {# ── Header ── #}
-    <div class="bluf-header">
-        <div class="bluf-header-left">
+    <div class="header-row">
+        <div>
             <div class="bluf-doc-label">Bottom Line Up Front</div>
-            <h1 class="bluf-project-name">{{ project.name }}</h1>
+            <h2>{{ project.name }}
+                {% if project.is_demo %}<span class="badge badge-demo" style="vertical-align: middle; font-size: 0.6em;">DEMO</span>{% endif %}
+            </h2>
             <div class="bluf-generated">Generated {{ now.strftime('%B %d, %Y') if now else '' }}</div>
         </div>
-        <div class="bluf-header-right">
-            <button onclick="window.print()" class="btn btn-ghost-neutral" style="font-size:0.8rem;">🖨 Print</button>
-            <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn btn-ghost-neutral" style="font-size:0.8rem;">← Dashboard</a>
+        <div class="header-actions">
+            <button onclick="window.print()" class="btn btn-ghost-neutral">🖨 Print</button>
+            <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn btn-outline-accent" style="font-size:1rem;font-weight:600;">Dashboard</a>
         </div>
     </div>
 
