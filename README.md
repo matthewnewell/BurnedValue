@@ -89,6 +89,53 @@ This replaces optimistic assumptions with a quantifiable early warning.
 
 ---
 
+## Software Bill of Materials
+
+All components are open-source. No proprietary dependencies. No licensing fees.
+
+### Runtime — Python
+
+| Component | Version | License | Role |
+|---|---|---|---|
+| [Python](https://www.python.org/) | 3.12 | PSF License | Runtime |
+| [Flask](https://flask.palletsprojects.com/) | 3.1.3 | BSD 3-Clause | Web framework — routing, templating, sessions |
+| [Gunicorn](https://gunicorn.org/) | 25.3.0 | MIT | WSGI application server (production) |
+| [Jinja2](https://jinja.palletsprojects.com/) | (Flask dep) | BSD 3-Clause | HTML templating engine |
+| [Werkzeug](https://werkzeug.palletsprojects.com/) | (Flask dep) | BSD 3-Clause | WSGI utilities, request/response handling |
+| [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.0.1 | BSD 3-Clause | Local `.env` file loading for development |
+| [httpx](https://www.python-httpx.org/) | 0.28.1 | BSD 3-Clause | HTTP client for Ollama on-premise AI integration |
+| [anthropic](https://github.com/anthropics/anthropic-sdk-python) | 0.49.0 | MIT | Anthropic Claude API client (optional, cloud AI only) |
+
+### Frontend
+
+| Component | Version | License | Role |
+|---|---|---|---|
+| [Chart.js](https://www.chartjs.org/) | 4.x (CDN) | MIT | EVMS, burndown, CPI/SPI, and scope coverage charts |
+| [Inter](https://rsms.me/inter/) | Variable (CDN) | SIL Open Font License | UI typeface |
+
+### Infrastructure (Docker deployment)
+
+| Component | License | Role |
+|---|---|---|
+| [Docker Engine](https://docs.docker.com/engine/) | Apache 2.0 | Container runtime |
+| [Docker Compose](https://docs.docker.com/compose/) | Apache 2.0 | Multi-container orchestration |
+| [python:3.12-slim](https://hub.docker.com/_/python) | PSF / Debian | Base container image |
+
+### Optional AI Backends
+
+| Component | License | Role |
+|---|---|---|
+| [Ollama](https://ollama.com/) | MIT | On-premise LLM server — runs Llama 3, Mistral, and others locally |
+| [Anthropic Claude API](https://www.anthropic.com/) | Commercial (cloud) | Optional cloud AI analyst — requires API key and egress approval |
+
+> **Note:** Ollama and the Anthropic SDK are optional. The application runs fully without either. Ollama is the recommended path for organizations that require all data to remain on-premise.
+
+### Data Storage
+
+No database engine required. All project data is written to a single JSON file (`data/projects.json`) on the host filesystem using Python's standard library `json` module.
+
+---
+
 ## Deployment
 
 ### Docker (Recommended for On-Premise)
@@ -202,53 +249,6 @@ Before deploying internally:
 - [ ] Place behind a reverse proxy (Nginx, Traefik, or your organization's standard) if exposing beyond localhost
 - [ ] Restrict access to the data directory (`./data/`) on the host filesystem
 - [ ] Review `requirements.txt` against your organization's approved package list
-
----
-
-## Software Bill of Materials
-
-All components are open-source. No proprietary dependencies. No licensing fees.
-
-### Runtime — Python
-
-| Component | Version | License | Role |
-|---|---|---|---|
-| [Python](https://www.python.org/) | 3.12 | PSF License | Runtime |
-| [Flask](https://flask.palletsprojects.com/) | 3.1.3 | BSD 3-Clause | Web framework — routing, templating, sessions |
-| [Gunicorn](https://gunicorn.org/) | 25.3.0 | MIT | WSGI application server (production) |
-| [Jinja2](https://jinja.palletsprojects.com/) | (Flask dep) | BSD 3-Clause | HTML templating engine |
-| [Werkzeug](https://werkzeug.palletsprojects.com/) | (Flask dep) | BSD 3-Clause | WSGI utilities, request/response handling |
-| [python-dotenv](https://github.com/theskumar/python-dotenv) | 1.0.1 | BSD 3-Clause | Local `.env` file loading for development |
-| [httpx](https://www.python-httpx.org/) | 0.28.1 | BSD 3-Clause | HTTP client for Ollama on-premise AI integration |
-| [anthropic](https://github.com/anthropics/anthropic-sdk-python) | 0.49.0 | MIT | Anthropic Claude API client (optional, cloud AI only) |
-
-### Frontend
-
-| Component | Version | License | Role |
-|---|---|---|---|
-| [Chart.js](https://www.chartjs.org/) | 4.x (CDN) | MIT | EVMS, burndown, CPI/SPI, and scope coverage charts |
-| [Inter](https://rsms.me/inter/) | Variable (CDN) | SIL Open Font License | UI typeface |
-
-### Infrastructure (Docker deployment)
-
-| Component | License | Role |
-|---|---|---|
-| [Docker Engine](https://docs.docker.com/engine/) | Apache 2.0 | Container runtime |
-| [Docker Compose](https://docs.docker.com/compose/) | Apache 2.0 | Multi-container orchestration |
-| [python:3.12-slim](https://hub.docker.com/_/python) | PSF / Debian | Base container image |
-
-### Optional AI Backends
-
-| Component | License | Role |
-|---|---|---|
-| [Ollama](https://ollama.com/) | MIT | On-premise LLM server — runs Llama 3, Mistral, and others locally |
-| [Anthropic Claude API](https://www.anthropic.com/) | Commercial (cloud) | Optional cloud AI analyst — requires API key and egress approval |
-
-> **Note:** Ollama and the Anthropic SDK are optional. The application runs fully without either. Ollama is the recommended path for organizations that require all data to remain on-premise.
-
-### Data Storage
-
-No database engine required. All project data is written to a single JSON file (`data/projects.json`) on the host filesystem using Python's standard library `json` module.
 
 ---
 
