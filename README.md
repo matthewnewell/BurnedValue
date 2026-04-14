@@ -1,15 +1,17 @@
 # Burned Value
 
 <p align="center">
-  <img src="docs/BV-family.png" alt="The Burned Value family — EVMS dad with the pocket protector, free-spirited Burndown mom, and their responsible offspring holding the sign." width="480">
+  <img src="docs/BV-family.png" alt="The Burned Value family — rigid Waterfall dad, Agile mom, and their responsible offspring." width="480">
 </p>
 
 <p align="center">
-  <em>EVMS dad brought the spreadsheets. Burndown mom brought the vibes. Burned Value grew up to be the one who actually ships.</em>
+  <em>Dad ran federal programs by the book — rigid waterfall, ironclad baselines, a receipt for everything.<br>
+  Mom understood that change happens and built a methodology around it — but never quite got around to tracking the money.<br>
+  <strong>Burned Value</strong> inherited Dad's fiscal discipline and Mom's honest accounting of real work. It knows where the money went <em>and</em> what actually got done.</em>
 </p>
 
 <p align="center">
-  <a href="https://burned-value-demo.uc.r.appspot.com"><strong>▶ Live Demo</strong></a>
+  <a href="https://burned-value-demo.uc.r.appspot.com/dashboard/demo"><strong>▶ Live Demo — Digital Transformation Initiative</strong></a>
 </p>
 
 ---
@@ -20,14 +22,16 @@
 
 ## Screenshots
 
-### Project Index
-![Project Index](docs/screenshot-index.png)
-
-### Dashboard — KPIs, Charts, Glimpse Summary
-![Dashboard](docs/screenshot-dashboard.png)
-
-### BLUF — Executive Brief
-![BLUF](docs/screenshot-bluf.png)
+<table>
+<tr>
+<td width="50%"><img src="docs/ss-kpis.png" alt="Dashboard — Glimpse summary and KPI cards"></td>
+<td width="50%"><img src="docs/ss-charts.png" alt="Dashboard — EVMS and burndown charts"></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/ss-bluf-top.png" alt="BLUF — Executive status brief"></td>
+<td width="50%"><img src="docs/ss-bluf-narrative.png" alt="BLUF — Narrative analysis and risk flags"></td>
+</tr>
+</table>
 
 ---
 
