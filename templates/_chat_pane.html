@@ -1,0 +1,148 @@
+{# ── AI Chat Pane ─────────────────────────────────────────────────────────────
+   Shared partial. Requires `project` in template context (project.id, project.name).
+   Chat history persists across page navigations via sessionStorage, keyed per project.
+#}
+<div class="chat-pane" id="chatPane">
+  <div class="chat-pane-header">
+    <span class="chat-pane-title">
+      <span class="chat-ai-dot"></span> AI Analyst
+    </span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="chat-clear-btn" id="chatClearBtn" title="Clear conversation history">Clear</button>
+      <button class="chat-pane-close" id="chatPaneClose" title="Collapse">&#x2715;</button>
+    </div>
+  </div>
+
+  <div class="chat-messages" id="chatMessages">
+    {# Welcome bubble — hidden once stored history is restored #}
+    <div class="chat-msg chat-msg-ai" id="chatWelcome">
+      <div class="chat-bubble">
+        👋 I have full visibility into <strong>{{ project.name }}</strong> — ask me anything about cost performance, schedule, scope volatility, or what the numbers mean.
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-input-row">
+    <textarea class="chat-input" id="chatInput" rows="2" placeholder="Ask about this project…"></textarea>
+    <button class="chat-send-btn" id="chatSendBtn">&#9650;</button>
+  </div>
+</div>
+
+<button class="chat-toggle-btn" id="chatToggleBtn" title="Open AI Analyst">
+  &#129302; <span>AI</span>
+</button>
+
+<script>
+(function() {
+  const PROJECT_ID   = {{ project.id | tojson }};
+  const PROJECT_NAME = {{ project.name | tojson }};
+  const STORAGE_KEY  = 'ai-analyst-' + PROJECT_ID;
+
+  const pane        = document.getElementById('chatPane');
+  const toggleBtn   = document.getElementById('chatToggleBtn');
+  const closeBtn    = document.getElementById('chatPaneClose');
+  const clearBtn    = document.getElementById('chatClearBtn');
+  const messagesEl  = document.getElementById('chatMessages');
+  const welcomeEl   = document.getElementById('chatWelcome');
+  const input       = document.getElementById('chatInput');
+  const sendBtn     = document.getElementById('chatSendBtn');
+  const mainContent = document.querySelector('.content');
+
+  // ── History: persisted in sessionStorage per project ─────────────────
+  let history = [];
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (raw) history = JSON.parse(raw) || [];
+  } catch(e) { history = []; }
+
+  function saveHistory() {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch(e) {}
+  }
+
+  // ── Render a bubble (used for history restore and new messages) ───────
+  function addBubble(role, html) {
+    const wrap   = document.createElement('div');
+    wrap.className = 'chat-msg chat-msg-' + (role === 'user' ? 'user' : 'ai');
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    bubble.innerHTML = html;
+    wrap.appendChild(bubble);
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+  }
+
+  // Restore stored history into the pane on load
+  if (history.length) {
+    welcomeEl.style.display = 'none';
+    history.forEach(m => addBubble(m.role, m.content.replace(/\n/g, '<br>')));
+  }
+
+  // ── Open / close ──────────────────────────────────────────────────────
+  let open = localStorage.getItem('chatPaneOpen') === 'true';
+
+  function setOpen(val) {
+    open = val;
+    localStorage.setItem('chatPaneOpen', String(val));
+    pane.classList.toggle('chat-pane-open', val);
+    toggleBtn.classList.toggle('chat-toggle-hidden', val);
+    if (mainContent) mainContent.classList.toggle('chat-pane-active', val);
+  }
+
+  setOpen(open);
+  toggleBtn.addEventListener('click', () => setOpen(true));
+  closeBtn.addEventListener('click',  () => setOpen(false));
+
+  // ── Clear conversation ────────────────────────────────────────────────
+  clearBtn.addEventListener('click', () => {
+    history = [];
+    saveHistory();
+    messagesEl.innerHTML =
+      '<div class="chat-msg chat-msg-ai">' +
+        '<div class="chat-bubble">' +
+          '👋 I have full visibility into <strong>' + PROJECT_NAME + '</strong> — ' +
+          'ask me anything about cost performance, schedule, scope volatility, ' +
+          'or what the numbers mean.' +
+        '</div>' +
+      '</div>';
+  });
+
+  // ── Send ──────────────────────────────────────────────────────────────
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  sendBtn.addEventListener('click', send);
+
+  function send() {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value   = '';
+    sendBtn.disabled = true;
+    welcomeEl.style.display = 'none';
+
+    addBubble('user', text.replace(/\n/g, '<br>'));
+    history.push({ role: 'user', content: text });
+    saveHistory();
+
+    const thinkingBubble = addBubble('ai', '<em>Thinking…</em>');
+
+    fetch('/project/' + PROJECT_ID + '/chat', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ messages: history })
+    })
+    .then(r => r.json())
+    .then(data => {
+      const reply = data.reply || data.error || 'No response.';
+      thinkingBubble.innerHTML = reply.replace(/\n/g, '<br>');
+      history.push({ role: 'assistant', content: reply });
+      saveHistory();
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    })
+    .catch(() => {
+      thinkingBubble.innerHTML = '⚠️ Could not reach the server.';
+    })
+    .finally(() => { sendBtn.disabled = false; });
+  }
+})();
+</script>

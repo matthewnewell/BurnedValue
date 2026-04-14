@@ -1131,6 +1131,18 @@ a {
 }
 .chat-pane-close:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
 
+.chat-clear-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.chat-clear-btn:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+
 /* Messages */
 .chat-messages {
     flex: 1;
