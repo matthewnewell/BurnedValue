@@ -1,8 +1,33 @@
 # Burned Value
 
-**Earned Value Management with Agile Burndown — designed for closed, on-premise environments.**
+<p align="center">
+  <img src="docs/BV-family.png" alt="The Burned Value family — EVMS dad with the pocket protector, free-spirited Burndown mom, and their responsible offspring holding the sign." width="480">
+</p>
 
-Burned Value is an open-source project governance dashboard that combines EVMS (Earned Value Management System) discipline with Agile Release Burndown transparency. It is built to run entirely within your organization's network with no external dependencies.
+<p align="center">
+  <em>EVMS dad brought the spreadsheets. Burndown mom brought the vibes. Burned Value grew up to be the one who actually ships.</em>
+</p>
+
+<p align="center">
+  <a href="https://burned-value-demo.uc.r.appspot.com"><strong>▶ Live Demo</strong></a>
+</p>
+
+---
+
+**Burned Value** is an open-source project governance dashboard that combines EVMS (Earned Value Management System) discipline with Agile Release Burndown transparency. It is built to run entirely within your organization's network with no external dependencies.
+
+---
+
+## Screenshots
+
+### Project Index
+![Project Index](docs/screenshot-index.png)
+
+### Dashboard — KPIs, Charts, Glimpse Summary
+![Dashboard](docs/screenshot-dashboard.png)
+
+### BLUF — Executive Brief
+![BLUF](docs/screenshot-bluf.png)
 
 ---
 
@@ -82,11 +107,12 @@ git pull && docker compose up -d --build
 ```
 
 **To expose on your internal network** (behind your firewall):
-```bash
+```yaml
 # In docker-compose.yml, change:
 ports:
   - "0.0.0.0:8080:8080"
-# Then restart:
+```
+```bash
 docker compose up -d
 ```
 
