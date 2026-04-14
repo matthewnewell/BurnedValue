@@ -1,11 +1,16 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()  # loads .env for local dev; no-op in GAE/Docker where env vars are set directly
+
+# ai_client is imported AFTER load_dotenv so it picks up .env values at module level
+import ai_client
+
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort, session
 from models import CalculationEngine, Period
 import utils
 import uuid
 import json
 from datetime import datetime
-import ai_client
 
 app = Flask(__name__)
 # Set SECRET_KEY env var in production. The default is fine for local dev.
