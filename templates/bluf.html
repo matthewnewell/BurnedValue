@@ -4,8 +4,6 @@
 <style>
 /* ── BLUF document styles ── */
 .bluf-wrap {
-    max-width: 860px;
-    margin: 0 auto;
     padding-bottom: 60px;
 }
 
@@ -263,8 +261,9 @@
             <div class="bluf-generated">Generated {{ now.strftime('%B %d, %Y') if now else '' }}</div>
         </div>
         <div class="header-actions">
-            <button onclick="window.print()" class="btn btn-ghost-neutral">🖨 Print</button>
-            <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn btn-outline-accent" style="font-size:1rem;font-weight:600;">Dashboard</a>
+            <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn btn-outline-accent">Dashboard</a>
+            <a href="{{ url_for('update_project', project_id=project.id) }}" class="btn btn-outline-accent">Update Project</a>
+            <a href="{{ url_for('dashboard', project_id=project.id) }}#intervals" class="btn btn-outline-accent">Update Intervals</a>
         </div>
     </div>
 
