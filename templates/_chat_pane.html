@@ -115,7 +115,17 @@
     }
   }
 
-  setOpen(open);
+  // Restore state instantly (no slide/swish animation) — only animate on explicit user action
+  if (open) {
+    pane.style.transition = 'none';
+    if (mainContent) mainContent.style.transition = 'none';
+    setOpen(true);
+    void pane.offsetHeight;   // flush layout to commit the instant state
+    pane.style.transition = '';
+    if (mainContent) mainContent.style.transition = '';
+  } else {
+    setOpen(false);
+  }
   toggleBtn.addEventListener('click', () => setOpen(true));
   closeBtn.addEventListener('click',  () => setOpen(false));
 
@@ -208,6 +218,12 @@
         const curContent = document.querySelector('.content');
         if (!newContent || !curContent) { location.href = url; return; }
 
+        // Suppress transitions during content swap — prevents the chat pane from
+        // spuriously sliding and the main content from swishing due to a margin-right
+        // recalculation triggered by the large innerHTML change.
+        pane.style.transition = 'none';
+        if (mainContent) mainContent.style.transition = 'none';
+
         // Swap innerHTML — the .content element itself stays, preserving
         // its inline margin-right managed by the drag/open logic above.
         curContent.innerHTML = newContent.innerHTML;
@@ -232,6 +248,13 @@
 
         // Re-apply chat pane margin in case .content class was reset
         if (open && mainContent) mainContent.style.marginRight = pane.offsetWidth + 'px';
+
+        // Re-enable transitions after two frames so the browser commits the
+        // current layout before any future animated changes can fire.
+        requestAnimationFrame(() => { requestAnimationFrame(() => {
+          pane.style.transition = '';
+          if (mainContent) mainContent.style.transition = '';
+        }); });
 
         history.pushState({ spa: true }, doc.title || '', url);
         document.title = doc.title || '';
