@@ -21,8 +21,7 @@
                 "labor_hours": 360,
                 "labor_rate": 40,
                 "non_labor_cost": 1600,
-                "actual_cost": 16000,
-                "total_estimated_effort": 200
+                "actual_cost": 16000
             },
             {
                 "period_id": "demo-p2",
@@ -32,8 +31,7 @@
                 "labor_hours": 360,
                 "labor_rate": 40,
                 "non_labor_cost": 1600,
-                "actual_cost": 16000,
-                "total_estimated_effort": 200
+                "actual_cost": 16000
             },
             {
                 "period_id": "demo-p3",
@@ -43,8 +41,7 @@
                 "labor_hours": 460,
                 "labor_rate": 40,
                 "non_labor_cost": 3600,
-                "actual_cost": 22000,
-                "total_estimated_effort": 240
+                "actual_cost": 22000
             },
             {
                 "period_id": "demo-p4",
@@ -54,8 +51,7 @@
                 "labor_hours": 420,
                 "labor_rate": 40,
                 "non_labor_cost": 3200,
-                "actual_cost": 20000,
-                "total_estimated_effort": 310
+                "actual_cost": 20000
             },
             {
                 "period_id": "demo-p5",
@@ -65,8 +61,7 @@
                 "labor_hours": 420,
                 "labor_rate": 40,
                 "non_labor_cost": 3200,
-                "actual_cost": 20000,
-                "total_estimated_effort": 310
+                "actual_cost": 20000
             },
             {
                 "period_id": "demo-p6",
@@ -76,8 +71,7 @@
                 "labor_hours": 440,
                 "labor_rate": 40,
                 "non_labor_cost": 3400,
-                "actual_cost": 21000,
-                "total_estimated_effort": 325
+                "actual_cost": 21000
             }
         ]
     }

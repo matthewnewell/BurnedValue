@@ -1,8 +1,16 @@
 {# ── AI Chat Pane ─────────────────────────────────────────────────────────────
    Shared partial. Requires `project` in template context (project.id, project.name).
    Chat history persists across page navigations via sessionStorage, keyed per project.
+   AI responses are rendered as formatted markdown via marked.js.
+   Supports drag-resize on the left edge and a scroll-anchor badge.
 #}
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+
 <div class="chat-pane" id="chatPane">
+
+  {# ── Drag-resize handle — sits on the left edge of the pane ── #}
+  <div class="chat-drag-handle" id="chatDragHandle"></div>
+
   <div class="chat-pane-header">
     <span class="chat-pane-title">
       <span class="chat-ai-dot"></span> AI Analyst
@@ -12,6 +20,9 @@
       <button class="chat-pane-close" id="chatPaneClose" title="Collapse">&#x2715;</button>
     </div>
   </div>
+
+  {# ── Scroll-anchor badge — shown when a long response pushes the start off screen ── #}
+  <div class="chat-scroll-badge" id="chatScrollBadge">&#8593; response start</div>
 
   <div class="chat-messages" id="chatMessages">
     {# Welcome bubble — hidden once stored history is restored #}
@@ -39,16 +50,32 @@
   const STORAGE_KEY  = 'ai-analyst-' + PROJECT_ID;
 
   const pane        = document.getElementById('chatPane');
+  const dragHandle  = document.getElementById('chatDragHandle');
   const toggleBtn   = document.getElementById('chatToggleBtn');
   const closeBtn    = document.getElementById('chatPaneClose');
   const clearBtn    = document.getElementById('chatClearBtn');
   const messagesEl  = document.getElementById('chatMessages');
   const welcomeEl   = document.getElementById('chatWelcome');
+  const scrollBadge = document.getElementById('chatScrollBadge');
   const input       = document.getElementById('chatInput');
   const sendBtn     = document.getElementById('chatSendBtn');
   const mainContent = document.querySelector('.content');
 
-  // ── History: persisted in sessionStorage per project ─────────────────
+  // ── marked.js configuration ───────────────────────────────────────────
+  if (typeof marked !== 'undefined') {
+    marked.setOptions({ breaks: true, gfm: true });
+  }
+
+  function renderMarkdown(text) {
+    if (typeof marked !== 'undefined') return marked.parse(text);
+    return escapeHtml(text).replace(/\n/g, '<br>');
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── History ───────────────────────────────────────────────────────────
   let history = [];
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -59,23 +86,31 @@
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch(e) {}
   }
 
-  // ── Render a bubble (used for history restore and new messages) ───────
-  function addBubble(role, html) {
+  // ── Render a bubble ───────────────────────────────────────────────────
+  function addBubble(role, content, isThinking) {
     const wrap   = document.createElement('div');
     wrap.className = 'chat-msg chat-msg-' + (role === 'user' ? 'user' : 'ai');
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
-    bubble.innerHTML = html;
+
+    if (isThinking) {
+      bubble.innerHTML = '<em>Thinking…</em>';
+    } else if (role === 'user') {
+      bubble.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
+    } else {
+      bubble.innerHTML = renderMarkdown(content);
+    }
+
     wrap.appendChild(bubble);
     messagesEl.appendChild(wrap);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     return bubble;
   }
 
-  // Restore stored history into the pane on load
+  // Restore stored history on load
   if (history.length) {
     welcomeEl.style.display = 'none';
-    history.forEach(m => addBubble(m.role, m.content.replace(/\n/g, '<br>')));
+    history.forEach(m => addBubble(m.role === 'assistant' ? 'ai' : m.role, m.content));
   }
 
   // ── Open / close ──────────────────────────────────────────────────────
@@ -86,21 +121,79 @@
     localStorage.setItem('chatPaneOpen', String(val));
     pane.classList.toggle('chat-pane-open', val);
     toggleBtn.classList.toggle('chat-toggle-hidden', val);
-    if (mainContent) mainContent.classList.toggle('chat-pane-active', val);
+    if (mainContent) {
+      mainContent.classList.toggle('chat-pane-active', val);
+      mainContent.style.marginRight = val ? (pane.offsetWidth + 'px') : '';
+    }
   }
 
   setOpen(open);
   toggleBtn.addEventListener('click', () => setOpen(true));
   closeBtn.addEventListener('click',  () => setOpen(false));
 
+  // ── Drag-resize ───────────────────────────────────────────────────────
+  const PANE_MIN = 220;
+  const PANE_MAX = 680;
+  let dragging = false, dragStartX = 0, dragStartWidth = 0;
+
+  dragHandle.addEventListener('mousedown', e => {
+    dragging      = true;
+    dragStartX    = e.clientX;
+    dragStartWidth = pane.offsetWidth;
+    document.body.style.userSelect = 'none';
+    dragHandle.classList.add('dragging');
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta    = e.clientX - dragStartX;
+    const newWidth = Math.min(PANE_MAX, Math.max(PANE_MIN, dragStartWidth - delta));
+    pane.style.width = newWidth + 'px';
+    if (mainContent) mainContent.style.marginRight = newWidth + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+    dragHandle.classList.remove('dragging');
+  });
+
+  // ── Scroll anchor badge ───────────────────────────────────────────────
+  let anchorScrollTop = null;
+
+  function showScrollBadge(atScrollTop) {
+    anchorScrollTop = atScrollTop;
+    scrollBadge.classList.add('visible');
+  }
+
+  function hideScrollBadge() {
+    scrollBadge.classList.remove('visible');
+    anchorScrollTop = null;
+  }
+
+  scrollBadge.addEventListener('click', () => {
+    if (anchorScrollTop !== null) {
+      messagesEl.scrollTo({ top: anchorScrollTop, behavior: 'smooth' });
+    }
+  });
+
+  messagesEl.addEventListener('scroll', () => {
+    if (anchorScrollTop !== null && messagesEl.scrollTop <= anchorScrollTop + 40) {
+      hideScrollBadge();
+    }
+  });
+
   // ── Clear conversation ────────────────────────────────────────────────
   clearBtn.addEventListener('click', () => {
     history = [];
     saveHistory();
+    hideScrollBadge();
     messagesEl.innerHTML =
       '<div class="chat-msg chat-msg-ai">' +
         '<div class="chat-bubble">' +
-          '👋 I have full visibility into <strong>' + PROJECT_NAME + '</strong> — ' +
+          '👋 I have full visibility into <strong>' + escapeHtml(PROJECT_NAME) + '</strong> — ' +
           'ask me anything about cost performance, schedule, scope volatility, ' +
           'or what the numbers mean.' +
         '</div>' +
@@ -116,15 +209,22 @@
   function send() {
     const text = input.value.trim();
     if (!text) return;
-    input.value   = '';
+    input.value      = '';
     sendBtn.disabled = true;
     welcomeEl.style.display = 'none';
 
-    addBubble('user', text.replace(/\n/g, '<br>'));
+    const userBubble = addBubble('user', text);
+    // Capture scroll position that puts the user's prompt at the top of the pane.
+    // Computed now, before the response arrives, so the badge always returns here.
+    const userWrap        = userBubble.parentElement;
+    const userScrollAnchor = userWrap.getBoundingClientRect().top
+                           - messagesEl.getBoundingClientRect().top
+                           + messagesEl.scrollTop;
+
     history.push({ role: 'user', content: text });
     saveHistory();
 
-    const thinkingBubble = addBubble('ai', '<em>Thinking…</em>');
+    const thinkingBubble = addBubble('ai', '', true);
 
     fetch('/project/' + PROJECT_ID + '/chat', {
       method:  'POST',
@@ -134,10 +234,16 @@
     .then(r => r.json())
     .then(data => {
       const reply = data.reply || data.error || 'No response.';
-      thinkingBubble.innerHTML = reply.replace(/\n/g, '<br>');
+
+      thinkingBubble.innerHTML = renderMarkdown(reply);
       history.push({ role: 'assistant', content: reply });
       saveHistory();
+
+      // Scroll to bottom; show badge if the prompt scrolled far enough off the top
       messagesEl.scrollTop = messagesEl.scrollHeight;
+      if (messagesEl.scrollTop - userScrollAnchor > 40) {
+        showScrollBadge(userScrollAnchor);
+      }
     })
     .catch(() => {
       thinkingBubble.innerHTML = '⚠️ Could not reach the server.';

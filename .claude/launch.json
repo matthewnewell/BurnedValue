@@ -4,7 +4,8 @@
     {
       "name": "BurnedValue Dev",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["app.py"],
+      "runtimeArgs": ["/home/matthew/BurnedValue/app.py"],
+      "cwd": "/home/matthew/BurnedValue",
       "port": 5000
     }
   ]

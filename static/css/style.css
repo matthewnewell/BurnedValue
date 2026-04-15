@@ -74,6 +74,7 @@ a {
 .content {
     padding: 40px;
     min-width: 0;
+    transition: margin-right 0.3s ease;
 }
 
 /* ── Cards ── */
@@ -1043,10 +1044,9 @@ a {
 
 /* ── AI Chat Pane ──────────────────────────────────────────────────────────── */
 
-/* When pane is open, shrink main content */
+/* When pane is open, shrink main content — margin-right set dynamically via JS */
 .chat-pane-active.content {
-    margin-right: 360px;
-    transition: margin-right 0.3s ease;
+    /* width controlled by drag-resize JS */
 }
 
 /* Toggle button — bottom-right FAB */
@@ -1216,3 +1216,66 @@ a {
 }
 .chat-send-btn:hover { opacity: 0.85; }
 .chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Drag-resize handle ──────────────────────────────────────────────────── */
+.chat-drag-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: ew-resize;
+    z-index: 10;
+    border-radius: 3px 0 0 3px;
+    transition: background 0.15s;
+    flex-shrink: 0;
+}
+.chat-drag-handle:hover,
+.chat-drag-handle.dragging {
+    background: rgba(88, 166, 255, 0.28);
+}
+
+/* ── Scroll anchor badge ─────────────────────────────────────────────────── */
+.chat-scroll-badge {
+    display: none;
+    background: var(--accent);
+    color: #0d1117;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin: 6px auto 0;
+    user-select: none;
+    flex-shrink: 0;
+    text-align: center;
+    letter-spacing: 0.02em;
+    width: fit-content;
+}
+.chat-scroll-badge.visible { display: block; }
+
+/* ── Markdown rendering inside AI bubbles ───────────────────────────────── */
+.chat-msg-ai .chat-bubble p          { margin: 0 0 0.6em; }
+.chat-msg-ai .chat-bubble p:last-child { margin-bottom: 0; }
+.chat-msg-ai .chat-bubble h1,
+.chat-msg-ai .chat-bubble h2,
+.chat-msg-ai .chat-bubble h3         { font-size: 0.9rem; font-weight: 700; margin: 0.7em 0 0.3em; color: var(--text-primary); }
+.chat-msg-ai .chat-bubble ul,
+.chat-msg-ai .chat-bubble ol         { margin: 0.4em 0 0.6em 1.2em; padding: 0; }
+.chat-msg-ai .chat-bubble li         { margin-bottom: 0.25em; }
+.chat-msg-ai .chat-bubble strong     { color: var(--accent); font-weight: 700; }
+.chat-msg-ai .chat-bubble em         { opacity: 0.85; }
+.chat-msg-ai .chat-bubble code       { font-family: 'Courier New', monospace; font-size: 0.8rem;
+                                       background: rgba(0,0,0,0.35); padding: 1px 5px;
+                                       border-radius: 4px; color: #7dd3fc; }
+.chat-msg-ai .chat-bubble pre        { background: rgba(0,0,0,0.35); border: 1px solid var(--border);
+                                       border-radius: 6px; padding: 10px 12px; overflow-x: auto;
+                                       margin: 0.5em 0; }
+.chat-msg-ai .chat-bubble pre code   { background: transparent; padding: 0; color: #7dd3fc; font-size: 0.78rem; }
+.chat-msg-ai .chat-bubble hr         { border: none; border-top: 1px solid var(--border); margin: 0.75em 0; }
+.chat-msg-ai .chat-bubble table      { border-collapse: collapse; width: 100%; font-size: 0.78rem; margin: 0.5em 0; }
+.chat-msg-ai .chat-bubble th,
+.chat-msg-ai .chat-bubble td         { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
+.chat-msg-ai .chat-bubble th         { background: rgba(255,255,255,0.06); font-weight: 600; }
+.chat-msg-ai .chat-bubble blockquote { border-left: 3px solid var(--accent); margin: 0.5em 0;
+                                       padding: 4px 12px; opacity: 0.85; }
