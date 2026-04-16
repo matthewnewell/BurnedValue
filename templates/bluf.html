@@ -16,14 +16,7 @@
     border-bottom: 1px solid var(--border);
 }
 .bluf-header-left {}
-.bluf-doc-label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    margin-bottom: 4px;
-}
+/* .bluf-doc-label is defined globally in style.css */
 .bluf-project-name {
     font-size: 1.4rem;
     font-weight: 800;
@@ -254,7 +247,7 @@
     {# ── Header ── #}
     <div class="header-row">
         <div>
-            <div class="bluf-doc-label">Bottom Line Up Front</div>
+            <div class="bluf-doc-label">Bottom Line Up Front (BLUF)</div>
             <h2>{{ project.name }}
                 {% if project.is_demo %}<span class="badge badge-demo" style="vertical-align: middle; font-size: 0.6em;">DEMO</span>{% endif %}
             </h2>
@@ -497,7 +490,7 @@
                 },
                 options: {
                     responsive: true,
-                    aspectRatio: 2,
+                    aspectRatio: 1.67,
                     plugins: { legend: { display: false },
                                tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}` } } },
                     scales: {
@@ -630,7 +623,7 @@
                 },
                 options: {
                     responsive: true,
-                    aspectRatio: 2,
+                    aspectRatio: 1.67,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { display: false },

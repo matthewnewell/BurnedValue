@@ -77,6 +77,16 @@ a {
     transition: margin-right 0.3s ease;
 }
 
+/* ── Page section label (used in Dashboard and BLUF headers) ── */
+.bluf-doc-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
 /* ── Cards ── */
 .card {
     background: var(--card-bg);
