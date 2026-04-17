@@ -1,22 +1,29 @@
 {# ── AI Chat Pane ─────────────────────────────────────────────────────────────
-   Shared partial. Requires `project` in template context (project.id, project.name).
-   Chat history persists across page navigations via sessionStorage, keyed per project.
-   AI responses are rendered as formatted markdown via marked.js.
-   Supports drag-resize on the left edge.
-   SPA navigation: links marked data-spa swap .content without reloading the pane.
+   Universal partial — always rendered via layout.html.
+   Context is injected per-page via window.CHAT_* globals (set before this runs):
+     window.CHAT_ENDPOINT     – POST URL, e.g. /project/abc/chat or /portfolio/chat
+     window.CHAT_STORAGE_KEY  – sessionStorage key for history
+     window.CHAT_WELCOME_HTML – HTML string for the welcome bubble
+     window.CHAT_PLACEHOLDER  – textarea placeholder text
+   If CHAT_ENDPOINT is not set the toggle button stays hidden (no AI on that page).
 #}
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 
 <div class="chat-pane" id="chatPane">
-
-  {# ── Drag-resize handle ── #}
   <div class="chat-drag-handle" id="chatDragHandle"></div>
 
   <div class="chat-pane-header">
     <span class="chat-pane-title">
       <span class="chat-ai-dot"></span> AI Analyst
     </span>
-    <div style="display:flex;align-items:center;gap:6px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <select class="chat-tone-select" id="chatToneSelect" title="Response tone">
+        <option value="pm">PM</option>
+        <option value="csuite">C-Suite</option>
+        <option value="ic">IC</option>
+        <option value="socratic">Socratic</option>
+        <option value="caveman">Caveman</option>
+      </select>
       <button class="chat-clear-btn" id="chatClearBtn" title="Clear conversation history">Clear</button>
       <button class="chat-pane-close" id="chatPaneClose" title="Collapse">&#x2715;</button>
     </div>
@@ -24,27 +31,27 @@
 
   <div class="chat-messages" id="chatMessages">
     <div class="chat-msg chat-msg-ai" id="chatWelcome">
-      <div class="chat-bubble">
-        👋 I have full visibility into <strong>{{ project.name }}</strong> — ask me anything about cost performance, schedule, scope volatility, or what the numbers mean.
-      </div>
+      <div class="chat-bubble" id="chatWelcomeBubble"></div>
     </div>
   </div>
 
   <div class="chat-input-row">
-    <textarea class="chat-input" id="chatInput" rows="2" placeholder="Ask about this project…"></textarea>
+    <textarea class="chat-input" id="chatInput" rows="2" placeholder="Ask…"></textarea>
     <button class="chat-send-btn" id="chatSendBtn">&#9650;</button>
   </div>
 </div>
 
-<button class="chat-toggle-btn" id="chatToggleBtn" title="Open AI Analyst">
+<button class="chat-toggle-btn" id="chatToggleBtn" title="Open AI Analyst" style="display:none;">
   &#129302; <span>AI</span>
 </button>
 
 <script>
 (function() {
-  const PROJECT_ID   = {{ project.id | tojson }};
-  const PROJECT_NAME = {{ project.name | tojson }};
-  const STORAGE_KEY  = 'ai-analyst-' + PROJECT_ID;
+  // ── Context (set by each page before this script runs) ────────────────────
+  const ENDPOINT     = window.CHAT_ENDPOINT     || null;
+  const STORAGE_KEY  = window.CHAT_STORAGE_KEY  || 'ai-default';
+  const WELCOME_HTML = window.CHAT_WELCOME_HTML || '';
+  const PLACEHOLDER  = window.CHAT_PLACEHOLDER  || 'Ask\u2026';
 
   const pane        = document.getElementById('chatPane');
   const dragHandle  = document.getElementById('chatDragHandle');
@@ -53,55 +60,60 @@
   const clearBtn    = document.getElementById('chatClearBtn');
   const messagesEl  = document.getElementById('chatMessages');
   const welcomeEl   = document.getElementById('chatWelcome');
+  const welcomeBubble = document.getElementById('chatWelcomeBubble');
   const input       = document.getElementById('chatInput');
   const sendBtn     = document.getElementById('chatSendBtn');
   const mainContent = document.querySelector('.content');
 
+  // No endpoint on this page — leave toggle hidden
+  if (!ENDPOINT) return;
+
+  toggleBtn.style.display = '';
+  welcomeBubble.innerHTML = WELCOME_HTML;
+  input.placeholder = PLACEHOLDER;
+
+  // ── Tone ─────────────────────────────────────────────────────────────────
+  const toneSelect = document.getElementById('chatToneSelect');
+  const TONE_KEY   = 'chat-tone';
+  const savedTone  = localStorage.getItem(TONE_KEY) || 'pm';
+  toneSelect.value = savedTone;
+  toneSelect.addEventListener('change', () => localStorage.setItem(TONE_KEY, toneSelect.value));
+
   // ── marked.js ────────────────────────────────────────────────────────────
   if (typeof marked !== 'undefined') marked.setOptions({ breaks: true, gfm: true });
-
   function renderMarkdown(text) {
-    return (typeof marked !== 'undefined')
-      ? marked.parse(text)
-      : escapeHtml(text).replace(/\n/g, '<br>');
+    return (typeof marked !== 'undefined') ? marked.parse(text) : escapeHtml(text).replace(/\n/g,'<br>');
   }
   function escapeHtml(text) {
     return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // ── History ───────────────────────────────────────────────────────────────
+  // ── History (per context key) ─────────────────────────────────────────────
   let history = [];
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (raw) history = JSON.parse(raw) || [];
-  } catch(e) { history = []; }
+  try { const raw = sessionStorage.getItem(STORAGE_KEY); if (raw) history = JSON.parse(raw) || []; } catch(e) {}
+  function saveHistory() { try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch(e) {} }
 
-  function saveHistory() {
-    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch(e) {}
-  }
-
-  // ── Render a bubble ───────────────────────────────────────────────────────
+  // ── Bubbles ───────────────────────────────────────────────────────────────
   function addBubble(role, content, isThinking) {
-    const wrap   = document.createElement('div');
+    const wrap = document.createElement('div');
     wrap.className = 'chat-msg chat-msg-' + (role === 'user' ? 'user' : 'ai');
     const bubble = document.createElement('div');
     bubble.className = 'chat-bubble';
-    if (isThinking)        bubble.innerHTML = '<em>Thinking…</em>';
-    else if (role === 'user') bubble.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
-    else                   bubble.innerHTML = renderMarkdown(content);
+    if (isThinking)          bubble.innerHTML = '<em>Thinking\u2026</em>';
+    else if (role === 'user') bubble.innerHTML = escapeHtml(content).replace(/\n/g,'<br>');
+    else                     bubble.innerHTML = renderMarkdown(content);
     wrap.appendChild(bubble);
     messagesEl.appendChild(wrap);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     return bubble;
   }
 
-  // Restore stored history on load
   if (history.length) {
     welcomeEl.style.display = 'none';
     history.forEach(m => addBubble(m.role === 'assistant' ? 'ai' : m.role, m.content));
   }
 
-  // ── Open / close ──────────────────────────────────────────────────────────
+  // ── Open / close (state persists in localStorage across full navigations) ──
   let open = localStorage.getItem('chatPaneOpen') === 'true';
 
   function setOpen(val) {
@@ -110,57 +122,31 @@
     pane.classList.toggle('chat-pane-open', val);
     toggleBtn.classList.toggle('chat-toggle-hidden', val);
     if (mainContent) {
-      mainContent.classList.toggle('chat-pane-active', val);
       mainContent.style.marginRight = val ? (pane.offsetWidth + 'px') : '';
     }
   }
 
-  // Restore state instantly (no slide/swish animation) — only animate on explicit user action
+  // Restore state without animation, then re-enable transitions
   if (open) {
     pane.style.transition = 'none';
     if (mainContent) mainContent.style.transition = 'none';
     setOpen(true);
-    void pane.offsetHeight;   // flush layout to commit the instant state
+    void pane.offsetHeight;
     pane.style.transition = '';
     if (mainContent) mainContent.style.transition = '';
   } else {
     setOpen(false);
   }
+
   toggleBtn.addEventListener('click', () => setOpen(true));
   closeBtn.addEventListener('click',  () => setOpen(false));
-
-  // ── Drag-resize ───────────────────────────────────────────────────────────
-  const PANE_MIN = 220, PANE_MAX = 680;
-  let dragging = false, dragStartX = 0, dragStartWidth = 0;
-
-  dragHandle.addEventListener('mousedown', e => {
-    dragging = true; dragStartX = e.clientX; dragStartWidth = pane.offsetWidth;
-    document.body.style.userSelect = 'none';
-    dragHandle.classList.add('dragging');
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    const newWidth = Math.min(PANE_MAX, Math.max(PANE_MIN, dragStartWidth - (e.clientX - dragStartX)));
-    pane.style.width = newWidth + 'px';
-    if (mainContent) mainContent.style.marginRight = newWidth + 'px';
-  });
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    document.body.style.userSelect = '';
-    dragHandle.classList.remove('dragging');
-  });
 
   // ── Clear ─────────────────────────────────────────────────────────────────
   clearBtn.addEventListener('click', () => {
     history = [];
     saveHistory();
-    messagesEl.innerHTML =
-      '<div class="chat-msg chat-msg-ai"><div class="chat-bubble">' +
-      '👋 I have full visibility into <strong>' + escapeHtml(PROJECT_NAME) + '</strong> — ' +
-      'ask me anything about cost performance, schedule, scope volatility, or what the numbers mean.' +
-      '</div></div>';
+    messagesEl.querySelectorAll('.chat-msg:not(#chatWelcome)').forEach(el => el.remove());
+    welcomeEl.style.display = '';
   });
 
   // ── Send ──────────────────────────────────────────────────────────────────
@@ -176,23 +162,20 @@
     welcomeEl.style.display = 'none';
 
     const userBubble = addBubble('user', text);
-    const userWrap   = userBubble.parentElement;
-    // Pin user's question to top of pane
-    const userScrollAnchor = userWrap.getBoundingClientRect().top
-                           - messagesEl.getBoundingClientRect().top
-                           + messagesEl.scrollTop;
-    messagesEl.scrollTop = userScrollAnchor;
+    const anchor = userBubble.parentElement.getBoundingClientRect().top
+                 - messagesEl.getBoundingClientRect().top + messagesEl.scrollTop;
+    messagesEl.scrollTop = anchor;
 
     history.push({ role: 'user', content: text });
     saveHistory();
 
     const thinkingBubble = addBubble('ai', '', true);
-    messagesEl.scrollTop = userScrollAnchor;   // keep question pinned while thinking
+    messagesEl.scrollTop = anchor;
 
-    fetch('/project/' + PROJECT_ID + '/chat', {
+    fetch(ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: history })
+      body: JSON.stringify({ messages: history, tone: toneSelect.value })
     })
     .then(r => r.json())
     .then(data => {
@@ -200,15 +183,36 @@
       thinkingBubble.innerHTML = renderMarkdown(reply);
       history.push({ role: 'assistant', content: reply });
       saveHistory();
-      messagesEl.scrollTop = userScrollAnchor;  // question stays at top, response below
+      messagesEl.scrollTop = anchor;
     })
-    .catch(() => { thinkingBubble.innerHTML = '⚠️ Could not reach the server.'; })
+    .catch(() => { thinkingBubble.innerHTML = '\u26a0\ufe0f Could not reach the server.'; })
     .finally(() => { sendBtn.disabled = false; });
   }
 
+  // ── Drag-resize ───────────────────────────────────────────────────────────
+  const PANE_MIN = 220, PANE_MAX = 680;
+  let dragging = false, dragStartX = 0, dragStartWidth = 0;
+
+  dragHandle.addEventListener('mousedown', e => {
+    dragging = true; dragStartX = e.clientX; dragStartWidth = pane.offsetWidth;
+    document.body.style.userSelect = 'none';
+    dragHandle.classList.add('dragging');
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.min(PANE_MAX, Math.max(PANE_MIN, dragStartWidth - (e.clientX - dragStartX)));
+    pane.style.width = w + 'px';
+    if (mainContent) mainContent.style.marginRight = w + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+    dragHandle.classList.remove('dragging');
+  });
+
   // ── SPA navigation — swap .content without touching the chat pane ─────────
-  // Links marked with data-spa fetch the target, replace only .content,
-  // and re-execute the page scripts so charts and tables re-initialise.
   function spNavigate(url) {
     fetch(url)
       .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
@@ -218,39 +222,23 @@
         const curContent = document.querySelector('.content');
         if (!newContent || !curContent) { location.href = url; return; }
 
-        // Suppress transitions during content swap — prevents the chat pane from
-        // spuriously sliding and the main content from swishing due to a margin-right
-        // recalculation triggered by the large innerHTML change.
         pane.style.transition = 'none';
         if (mainContent) mainContent.style.transition = 'none';
 
-        // Swap innerHTML — the .content element itself stays, preserving
-        // its inline margin-right managed by the drag/open logic above.
         curContent.innerHTML = newContent.innerHTML;
 
-        // Re-execute <script> tags (innerHTML doesn't run them).
-        // Wrap each in an IIFE so top-level const/let don't collide with
-        // variables declared during the original page load.
         curContent.querySelectorAll('script').forEach(old => {
           const s = document.createElement('script');
           s.textContent = '(function(){\n' + old.textContent + '\n})();';
           old.replaceWith(s);
         });
 
-        // Scroll to hash anchor if present, otherwise top of page
         const hash = new URL(url, location.href).hash;
-        if (hash) {
-          const target = document.querySelector(hash);
-          if (target) target.scrollIntoView({ behavior: 'smooth' });
-        } else {
-          window.scrollTo(0, 0);
-        }
+        if (hash) { const t = document.querySelector(hash); if (t) t.scrollIntoView({ behavior: 'smooth' }); }
+        else window.scrollTo(0, 0);
 
-        // Re-apply chat pane margin in case .content class was reset
         if (open && mainContent) mainContent.style.marginRight = pane.offsetWidth + 'px';
 
-        // Re-enable transitions after two frames so the browser commits the
-        // current layout before any future animated changes can fire.
         requestAnimationFrame(() => { requestAnimationFrame(() => {
           pane.style.transition = '';
           if (mainContent) mainContent.style.transition = '';
@@ -262,7 +250,6 @@
       .catch(() => { location.href = url; });
   }
 
-  // Intercept clicks on [data-spa] links
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-spa]');
     if (!el) return;
@@ -272,7 +259,6 @@
     spNavigate(href);
   });
 
-  // Browser back / forward
   window.addEventListener('popstate', e => {
     if (e.state && e.state.spa) spNavigate(location.pathname + location.search + location.hash);
   });

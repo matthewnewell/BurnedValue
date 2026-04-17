@@ -1,6 +1,12 @@
 {% extends 'layout.html' %}
 
 {% block content %}
+<script>
+window.CHAT_ENDPOINT     = '/portfolio/chat';
+window.CHAT_STORAGE_KEY  = 'ai-portfolio';
+window.CHAT_WELCOME_HTML = '\ud83d\udc4b I have an overview of all projects in <strong>{{ portfolio.name | e }}</strong> \u2014 ask me about portfolio health, performance trends, or how individual projects compare.';
+window.CHAT_PLACEHOLDER  = 'Ask about the portfolio\u2026';
+</script>
 <div class="project-grid">
     {% for project in projects %}
     <a href="{{ url_for('dashboard', project_id=project.id) }}" class="project-card card {{ 'demo-card' if project.is_demo }}">
@@ -50,12 +56,16 @@
         </div>
 
         {% if project.metrics.cpi > 0 %}
-        <div class="project-meta" style="margin-top: 2px;">
-            <span style="font-size:0.8rem; color:var(--text-secondary);">{{ project.metrics.percent_complete }}% complete</span>
-        </div>
-        <div class="progress-bar-wrap">
-            <div class="progress-bar-fill {{ 'fill-danger' if project.metrics.cpi < 0.95 else ('fill-warning' if project.metrics.cpi < 1.0 else 'fill-success') }}"
-                 style="width: {{ [project.metrics.percent_complete, 100] | min }}%"></div>
+        {% set actual_pct = [project.metrics.percent_complete, 100] | min %}
+        {% set plan_pct   = [(project.metrics.pv / project.metrics.bac * 100) | round(1), 100] | min if project.metrics.bac else 0 %}
+        <div class="dual-bar-wrap">
+            <div class="dual-bar-track">
+                <div class="dual-bar-fill fill-plan" style="width:{{ plan_pct }}%"></div>
+            </div>
+            <div class="dual-bar-track">
+                <div class="dual-bar-fill {{ 'fill-danger' if project.metrics.cpi < 0.95 else ('fill-warning' if project.metrics.cpi < 1.0 else 'fill-success') }}"
+                     style="width:{{ actual_pct }}%"></div>
+            </div>
         </div>
         {% endif %}
 

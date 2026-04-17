@@ -342,6 +342,14 @@ def project_api(project_id):
     return jsonify(project)
 
 
+_TONE_INSTRUCTIONS = {
+    'csuite':   "RESPONSE STYLE — C-Suite: Lead with the bottom line in one sentence. Follow with 2-3 bullet points max covering strategic risk, financial impact, and recommended decision. No operational detail. Numbers only when they change the decision.",
+    'pm':       "RESPONSE STYLE — Project Manager: Be thorough and action-oriented. Cover status, risks, blockers, and concrete next steps. Use tables or lists where helpful. Reference specific dates, costs, and metrics.",
+    'ic':       "RESPONSE STYLE — Individual Contributor: Be technical and hands-on. Help break down work into user stories, acceptance criteria, and tasks. Be specific about implementation details. Speak peer-to-peer.",
+    'socratic': "RESPONSE STYLE — Socratic: Do not give direct answers. Instead, ask probing questions that surface assumptions and guide the operator to their own insights. End every response with one powerful question.",
+    'caveman':  "RESPONSE STYLE — Caveman: You are caveman analyst. Speak simple. Short sentences. Big number good. Small number bad. CPI low mean project hurt. Scope creep make caveman angry. Always end with caveman wisdom. Ugh.",
+}
+
 @app.route('/project/<project_id>/chat', methods=['POST'])
 def project_chat(project_id):
     """AI chat endpoint — receives conversation history, returns AI reply."""
@@ -353,6 +361,7 @@ def project_chat(project_id):
     messages = body.get("messages", [])
     if not messages:
         return jsonify({"error": "No messages provided"}), 400
+    tone = body.get("tone", "pm")
 
     # Build rich project context for the AI
     periods  = project.get("periods", [])
@@ -372,6 +381,53 @@ def project_chat(project_id):
         "period_details": details,
     }
 
+    # Enrich with work structure from SQLite if any exists
+    from db import Epic, Discipline, Iteration
+    epics = Epic.query.filter_by(project_id=project_id).order_by(Epic.order).all()
+    if epics:
+        context["work_structure"] = {
+            "epics": [
+                {
+                    "name": e.name,
+                    "percent_complete": round(e.percent_complete, 1),
+                    "features": [
+                        {
+                            "name": f.name,
+                            "status": f.status,
+                            "feature_points": f.feature_points,
+                            "percent_complete": round(f.percent_complete * 100, 1),
+                            "blocked": f.blocked,
+                            "stories": [
+                                {"name": s.name, "points": s.story_points, "status": s.status, "blocked": s.blocked}
+                                for s in f.stories
+                            ]
+                        }
+                        for f in e.features
+                    ]
+                }
+                for e in epics
+            ]
+        }
+
+    disciplines = Discipline.query.filter_by(project_id=project_id).all()
+    if disciplines:
+        context.setdefault("work_structure", {})["disciplines"] = [
+            {"name": d.name, "rate": d.avg_rate, "hours_per_period": d.planned_hours_per_period}
+            for d in disciplines
+        ]
+
+    iterations = Iteration.query.filter_by(project_id=project_id).order_by(Iteration.number).all()
+    if iterations:
+        context.setdefault("work_structure", {})["iterations"] = [
+            {"number": i.number, "start": i.start_date, "end": i.end_date, "goal": i.goal}
+            for i in iterations
+        ]
+
+    work_note = (
+        "\nWork structure data (epics, features, stories, iterations, disciplines) is also included above under 'work_structure'."
+        if "work_structure" in context else ""
+    )
+
     system = f"""You are an expert project governance analyst embedded in the Burned Value dashboard.
 Burned Value combines EVMS (Earned Value Management) with Agile Release Burndown.
 
@@ -383,12 +439,70 @@ Key concepts:
 - budget_per_point: BAC / Total Scope Points (non-display field, used internally for $/pt calculations).
 - Percent Complete: Completed Points / Total Scope Points.
 
-Current project data (JSON):
+Current project data (JSON):{work_note}
 {json.dumps(context, indent=2, default=str)}
 
 Answer the operator's questions about this project clearly and concisely.
 Use specific numbers from the data. Flag risks proactively.
-When asked to update data, describe exactly what change you would make — data write capability is coming soon."""
+When asked to update data, describe exactly what change you would make — data write capability is coming soon.
+
+{_TONE_INSTRUCTIONS.get(tone, _TONE_INSTRUCTIONS['pm'])}"""
+
+    reply = ai_client.chat(messages=messages, system=system)
+    return jsonify({"reply": reply, "provider": ai_client.AI_PROVIDER})
+
+
+@app.route('/portfolio/chat', methods=['POST'])
+def portfolio_chat():
+    """Portfolio-level AI chat endpoint."""
+    body     = request.get_json(force=True)
+    messages = body.get("messages", [])
+    if not messages:
+        return jsonify({"error": "No messages provided"}), 400
+    tone = body.get("tone", "pm")
+
+    portfolio     = utils.get_portfolio()
+    projects_dict = utils.load_projects()
+
+    projects_summary = []
+    for p in projects_dict.values():
+        m = CalculationEngine.compute_metrics(p, p.get('periods', []))
+        projects_summary.append({
+            "name":           p.get("name"),
+            "description":    p.get("description"),
+            "contract_value": p.get("contract_value"),
+            "bac":            p.get("bac"),
+            "start_date":     p.get("start_date"),
+            "end_date":       p.get("end_date"),
+            "is_demo":        p.get("is_demo", False),
+            "is_sample":      p.get("is_sample", False),
+            "cpi":            m["cpi"],
+            "spi":            m["spi"],
+            "eac":            m["eac"],
+            "percent_complete": m["percent_complete"],
+            "scope_coverage_ratio": m["scope_coverage_ratio"],
+        })
+    projects_summary.sort(key=lambda p: p.get("name", ""))
+
+    system = f"""You are an expert project governance analyst embedded in the {portfolio['name']} portfolio dashboard.
+Burned Value combines EVMS (Earned Value Management) with Agile Release Burndown.
+
+Key concepts:
+- CPI (Cost Performance Index): EV / AC. <1.0 = over budget, >1.0 = under budget.
+- SPI (Schedule Performance Index): EV / PV. <1.0 = behind schedule.
+- EAC (Estimate at Completion): projected final cost.
+- Scope Coverage Ratio: how much of the current scope is funded by the original budget.
+
+Portfolio: {portfolio['name']}
+{portfolio.get('description', '')}
+
+Projects in this portfolio:
+{json.dumps(projects_summary, indent=2, default=str)}
+
+Answer the operator's questions about portfolio health, cross-project performance trends, and individual project status.
+Use specific numbers. Proactively flag risks and surface patterns across the portfolio.
+
+{_TONE_INSTRUCTIONS.get(tone, _TONE_INSTRUCTIONS['pm'])}"""
 
     reply = ai_client.chat(messages=messages, system=system)
     return jsonify({"reply": reply, "provider": ai_client.AI_PROVIDER})

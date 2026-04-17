@@ -14,6 +14,12 @@
   {% set _active = 'dashboard' %}
 {% endif %}
 
+<script>
+window.CHAT_ENDPOINT     = '/project/{{ project.id }}/chat';
+window.CHAT_STORAGE_KEY  = 'ai-{{ project.id }}';
+window.CHAT_WELCOME_HTML = '\ud83d\udc4b I have full visibility into <strong>{{ project.name | e }}</strong> \u2014 ask me anything about cost performance, schedule, scope volatility, or what the numbers mean.';
+window.CHAT_PLACEHOLDER  = 'Ask about this project\u2026';
+</script>
 <nav class="project-nav">
     <span class="project-nav-name">
         {{ project.name }}
@@ -29,6 +35,6 @@
         <a href="{{ url_for('work.plan', project_id=project.id) }}"
            class="project-nav-tab {{ 'active' if _active == 'work' }}">Work</a>
         <a href="{{ url_for('project_settings', project_id=project.id) }}"
-           class="project-nav-tab {{ 'active' if _active == 'settings' }}">Settings</a>
+           class="project-nav-tab {{ 'active' if _active == 'settings' }}" title="Settings" style="opacity:0.7;">⚙</a>
     </div>
 </nav>
