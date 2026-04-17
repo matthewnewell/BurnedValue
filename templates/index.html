@@ -69,7 +69,11 @@
         <div class="project-card-actions">
             <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn btn-outline-accent">Dashboard</a>
             <a href="{{ url_for('bluf', project_id=project.id) }}" class="btn btn-outline-accent">BLUF</a>
-            {% if not project.is_demo %}
+            {% if project.is_demo %}
+            <form method="POST" action="{{ url_for('reset_demo') }}">
+                <button type="submit" class="btn btn-ghost-neutral" title="Restore demo to its original state">↺ Reset Demo</button>
+            </form>
+            {% else %}
             <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}"
                   onsubmit="return confirm('Delete {{ project.name }}? This cannot be undone.')">
                 <button type="submit" class="btn btn-ghost-danger">Delete</button>
