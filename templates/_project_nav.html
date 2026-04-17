@@ -1,0 +1,34 @@
+{#
+  Persistent project-level nav bar.
+  Include at the top of every project page content block.
+  Requires: project variable in template context.
+  Active tab is auto-detected from request.path.
+#}
+{% if '/bluf' in request.path %}
+  {% set _active = 'bluf' %}
+{% elif '/work' in request.path %}
+  {% set _active = 'work' %}
+{% elif '/settings' in request.path %}
+  {% set _active = 'settings' %}
+{% else %}
+  {% set _active = 'dashboard' %}
+{% endif %}
+
+<nav class="project-nav">
+    <span class="project-nav-name">
+        {{ project.name }}
+        {% if project.is_demo %}<span class="badge badge-demo" style="font-size:0.55em; vertical-align:middle; margin-left:4px;">DEMO</span>{% endif %}
+    </span>
+    <div class="project-nav-tabs">
+        <a href="{{ url_for('dashboard', project_id=project.id) }}"
+           class="project-nav-tab {{ 'active' if _active == 'dashboard' }}"
+           data-spa>Dashboard</a>
+        <a href="{{ url_for('bluf', project_id=project.id) }}"
+           class="project-nav-tab {{ 'active' if _active == 'bluf' }}"
+           data-spa>BLUF</a>
+        <a href="{{ url_for('work.plan', project_id=project.id) }}"
+           class="project-nav-tab {{ 'active' if _active == 'work' }}">Work</a>
+        <a href="{{ url_for('project_settings', project_id=project.id) }}"
+           class="project-nav-tab {{ 'active' if _active == 'settings' }}">Settings</a>
+    </div>
+</nav>

@@ -11,10 +11,22 @@ import utils
 import uuid
 import json
 from datetime import datetime
+from db import init_db, get_db_path
 
 app = Flask(__name__)
 # Set SECRET_KEY env var in production. The default is fine for local dev.
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
+
+# ── SQLite / SQLAlchemy (Phase 1+ work structure entities) ─────────────────────
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{get_db_path()}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+init_db(app)
+
+@app.context_processor
+def inject_portfolio():
+    """Make portfolio available in every template as `portfolio`."""
+    return {'portfolio': utils.get_portfolio()}
+
 
 @app.template_filter('fmtdate')
 def fmtdate(value):
@@ -69,9 +81,21 @@ def save_project_for_request(project_id, project):
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
+@app.route('/portfolio/settings', methods=['GET', 'POST'])
+def portfolio_settings():
+    portfolio = utils.get_portfolio()
+    if request.method == 'POST':
+        portfolio['name']        = request.form.get('name', '').strip() or 'Burned Value'
+        portfolio['description'] = request.form.get('description', '').strip()
+        utils.save_portfolio(portfolio)
+        return redirect(url_for('portfolio_settings'))
+    return render_template('portfolio_settings.html', portfolio=portfolio)
+
+
 @app.route('/')
 def index():
     utils.ensure_demo_project()
+    utils.ensure_sample_project()
     projects_dict = utils.load_projects()
     projects_list = []
     for p in projects_dict.values():
@@ -79,7 +103,7 @@ def index():
         # (visitor's session edits only affect the dashboard view)
         metrics = CalculationEngine.compute_metrics(p, p.get('periods', []))
         projects_list.append({**p, 'metrics': metrics})
-    projects_list.sort(key=lambda p: (0 if p.get('is_demo') else 1, p.get('name', '')))
+    projects_list.sort(key=lambda p: (0 if p.get('is_demo') else (1 if p.get('is_sample') else 2), p.get('name', '')))
     return render_template('index.html', projects=projects_list)
 
 
@@ -277,7 +301,28 @@ def reset_demo():
     """Clear this visitor's session edits, restoring the demo to its initial state."""
     session.pop('demo_overrides', None)
     session.modified = True
-    return redirect(url_for('dashboard', project_id='demo'))
+    next_url = request.form.get('next') or url_for('index')
+    return redirect(next_url)
+
+
+@app.route('/project/<project_id>/settings', methods=['GET', 'POST'])
+def project_settings(project_id):
+    project = get_project_for_request(project_id)
+    if not project:
+        abort(404)
+
+    if request.method == 'POST':
+        cv_raw = request.form.get('contract_value', '').strip()
+        project['name']           = request.form['name']
+        project['description']    = request.form.get('description', '')
+        project['contract_value'] = float(cv_raw) if cv_raw else None
+        project['bac']            = float(request.form['bac'])
+        project['start_date']     = request.form['start_date']
+        project['end_date']       = request.form['end_date']
+        save_project_for_request(project_id, project)
+        return redirect(url_for('project_settings', project_id=project_id))
+
+    return render_template('settings.html', project=project)
 
 
 @app.route('/project/<project_id>/delete', methods=['POST'])
@@ -285,7 +330,7 @@ def delete_project(project_id):
     project = utils.get_project(project_id)
     if not project:
         abort(404)
-    if project.get('is_demo'):
+    if project.get('is_demo') or project.get('is_sample'):
         abort(403)
     utils.delete_project(project_id)
     return redirect(url_for('index'))
@@ -348,6 +393,9 @@ When asked to update data, describe exactly what change you would make — data 
     reply = ai_client.chat(messages=messages, system=system)
     return jsonify({"reply": reply, "provider": ai_client.AI_PROVIDER})
 
+
+from routes_work import work_bp
+app.register_blueprint(work_bp)
 
 if __name__ == '__main__':
     app.run(debug=True)

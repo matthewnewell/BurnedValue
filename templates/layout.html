@@ -13,11 +13,10 @@
 <body>
     <nav class="topnav">
         <div class="topnav-brand">
-            <a href="{{ url_for('index') }}">Burned Value 🚀</a>
+            <a href="{{ url_for('index') }}">{{ portfolio.name }}</a>
         </div>
         <ul class="topnav-links">
-            <li><a href="{{ url_for('index') }}">All Projects</a></li>
-            <li><a href="{{ url_for('create_project') }}">+ New Project</a></li>
+            <li><a href="{{ url_for('portfolio_settings') }}" title="Portfolio Settings" style="opacity:0.6;">⚙</a></li>
         </ul>
     </nav>
 

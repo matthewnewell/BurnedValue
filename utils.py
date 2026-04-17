@@ -5,6 +5,27 @@ from datetime import datetime, timedelta
 
 _DATA_DIR = os.environ.get('DATA_DIR', 'data')
 DATA_FILE = os.path.join(_DATA_DIR, 'projects.json')
+_PORTFOLIO_FILE = os.path.join(_DATA_DIR, 'portfolio.json')
+
+_PORTFOLIO_DEFAULTS = {
+    "name": "Burned Value",
+    "description": "",
+}
+
+
+def get_portfolio():
+    """Load portfolio config. Returns defaults if file doesn't exist."""
+    if not os.path.exists(_PORTFOLIO_FILE):
+        return dict(_PORTFOLIO_DEFAULTS)
+    with open(_PORTFOLIO_FILE) as f:
+        data = json.load(f)
+    return {**_PORTFOLIO_DEFAULTS, **data}
+
+
+def save_portfolio(data):
+    os.makedirs(_DATA_DIR, exist_ok=True)
+    with open(_PORTFOLIO_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
 
 _DEMO_PERIOD_IDS = [f"demo-p{i}" for i in range(1, 10)]
 
@@ -45,6 +66,57 @@ def _build_demo_project():
             {"period_id": pids[5], "date": d(12), "scope_delta": 15, "points_completed": 21, "labor_hours": 440, "labor_rate": 40, "non_labor_cost": 3400, "actual_cost": 21000},
         ]
     }
+
+
+_SAMPLE_PERIOD_IDS = [f"sample-p{i}" for i in range(1, 10)]
+
+
+def _build_sample_project():
+    today = datetime.now().date()
+    year  = today.year
+    start = datetime(year, 1, 5).date()
+    end   = datetime(year, 8, 31).date()
+
+    def d(weeks_from_start):
+        return (start + timedelta(weeks=weeks_from_start)).isoformat()
+
+    pids = _SAMPLE_PERIOD_IDS
+    # Each period: costs well below earned value, velocity ahead of planned pace.
+    # BAC $180k, baseline_scope 120 pts → budget_per_point = $1,500/pt
+    # 64 pts completed at ~68.7% through the schedule → SPI ≈ 1.51, CPI ≈ 1.16
+    return {
+        "id": "sample-1",
+        "is_sample": True,
+        "_seed_version": 1,
+        "name": "Sentinel Analytics Platform",
+        "description": "Sample project — delivering a real-time security telemetry platform ahead of schedule and under budget.",
+        "contract_value": 210000.0,
+        "bac": 180000.0,
+        "start_date": start.isoformat(),
+        "end_date":   end.isoformat(),
+        "interval_unit": "weeks",
+        "interval_size": 2,
+        "baseline_scope": 120.0,
+        "periods": [
+            # labor: hours * rate; non_labor added; actual_cost stored explicitly
+            {"period_id": pids[0], "date": d(2),  "scope_delta": 0, "points_completed": 10, "labor_hours": 280, "labor_rate": 40, "non_labor_cost": 1800, "actual_cost": 13000},
+            {"period_id": pids[1], "date": d(4),  "scope_delta": 0, "points_completed": 11, "labor_hours": 320, "labor_rate": 40, "non_labor_cost": 1700, "actual_cost": 14500},
+            {"period_id": pids[2], "date": d(6),  "scope_delta": 0, "points_completed": 10, "labor_hours": 280, "labor_rate": 40, "non_labor_cost": 1800, "actual_cost": 13000},
+            {"period_id": pids[3], "date": d(8),  "scope_delta": 0, "points_completed": 12, "labor_hours": 340, "labor_rate": 40, "non_labor_cost": 1400, "actual_cost": 15000},
+            {"period_id": pids[4], "date": d(10), "scope_delta": 0, "points_completed": 11, "labor_hours": 305, "labor_rate": 40, "non_labor_cost": 1800, "actual_cost": 14000},
+            {"period_id": pids[5], "date": d(12), "scope_delta": 0, "points_completed": 10, "labor_hours": 280, "labor_rate": 40, "non_labor_cost": 1800, "actual_cost": 13000},
+        ]
+    }
+
+
+def ensure_sample_project():
+    projects = load_projects()
+    projects['sample-1'] = _build_sample_project()
+    save_projects(projects)
+
+
+def get_canonical_sample():
+    return _build_sample_project()
 
 
 def load_projects():
@@ -174,6 +246,8 @@ def _backfill_scope_deltas(project):
         if 'scope_delta' not in p:
             p['scope_delta'] = float(p['total_estimated_effort']) - prev
             changed = True
-        prev = float(p['total_estimated_effort'])
+            prev = float(p['total_estimated_effort'])
+        else:
+            prev += float(p['scope_delta'])
 
     return changed

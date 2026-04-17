@@ -1,6 +1,7 @@
 {% extends "layout.html" %}
 
 {% block content %}
+{% include '_project_nav.html' %}
 <div class="header-row">
     <div>
         <div class="bluf-doc-label">Project Dashboard</div>
@@ -64,8 +65,6 @@
         </div>
     </div>
     <div class="header-actions">
-        <a href="{{ url_for('bluf', project_id=project.id) }}" class="btn btn-outline-accent" data-spa>BLUF</a>
-        <a href="{{ url_for('update_project', project_id=project.id) }}" class="btn btn-outline-accent">Update Project</a>
         <a href="#intervals" class="btn btn-outline-accent">Update Intervals</a>
     </div>
 </div>

@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div style="max-width: 600px;">
+    <div style="margin-bottom: 24px;">
+        <div class="bluf-doc-label">Global</div>
+        <h2>Portfolio Settings</h2>
+        <p class="description">These settings apply across all projects.</p>
+    </div>
+
+    <div class="card form-card">
+        <form method="POST" action="{{ url_for('portfolio_settings') }}">
+            <h3>🏢 Portfolio Identity</h3>
+            <div class="form-group">
+                <label>Portfolio Name</label>
+                <input type="text" name="name" required value="{{ portfolio.name }}"
+                       placeholder="e.g. Acme Corp PMO">
+                <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:4px;">
+                    Displayed in the top-left navigation across all pages.
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" rows="3"
+                          placeholder="Brief description of this portfolio...">{{ portfolio.description or '' }}</textarea>
+            </div>
+
+            <div style="display:flex; gap:12px; align-items:center; margin-top:8px;">
+                <button type="submit" class="btn primary">Save Changes</button>
+                <a href="{{ url_for('index') }}" class="btn btn-ghost-neutral">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card" style="max-width: 600px; margin-top: 24px; padding: 20px 24px;">
+    <h3 style="margin: 0 0 8px 0;">Projects</h3>
+    <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Create a new project to start tracking Earned Value.
+    </p>
+    <a href="{{ url_for('create_project') }}" class="btn primary">+ New Project</a>
+</div>
+
+<div class="card" style="max-width: 600px; margin-top: 24px; padding: 20px 24px; border-color: rgba(239,68,68,0.3);">
+    <h3 style="margin: 0 0 8px 0; color: var(--danger, #f87171);">Demo Project</h3>
+    <p style="margin: 0 0 16px 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Restore the demo project to its original seed state. Any edits made to the demo will be cleared.
+    </p>
+    <form method="POST" action="{{ url_for('reset_demo') }}">
+        <button type="submit" class="btn btn-ghost-neutral">↺ Reset Demo</button>
+    </form>
+</div>
+{% endblock %}

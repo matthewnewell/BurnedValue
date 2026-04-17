@@ -1,0 +1,283 @@
+{% extends "layout.html" %}
+
+{% block content %}
+{% include '_project_nav.html' %}
+
+{# ── Breadcrumb ── #}
+<div style="margin-bottom: 16px; font-size: 0.82rem; color: var(--text-secondary);">
+    <a href="{{ url_for('work.plan', project_id=project.id) }}"
+       style="color:var(--text-secondary); text-decoration:none;">Work</a>
+    <span style="margin: 0 6px;">›</span>
+    <a href="{{ url_for('work.plan', project_id=project.id) }}"
+       style="color:var(--text-secondary); text-decoration:none;">{{ feat.epic.name }}</a>
+    <span style="margin: 0 6px;">›</span>
+    <span style="color: var(--text-primary);">{{ feat.name }}</span>
+</div>
+
+<div class="header-row">
+    <div>
+        <div class="bluf-doc-label">Feature Detail</div>
+        <h2>{{ feat.name }}</h2>
+        {% if feat.description %}
+        <p class="description">{{ feat.description }}</p>
+        {% endif %}
+        <div class="project-header-meta" style="margin-top: 8px;">
+            <div class="meta-item">
+                <span class="meta-label">Feature Points</span>
+                <span class="meta-value">{{ '{:,.0f}'.format(feat.feature_points) }}</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label">Status</span>
+                <span class="meta-value"><span class="status-badge status-{{ feat.status }}">{{ feat.status }}</span></span>
+            </div>
+            {% if feat.target_start_iter or feat.target_end_iter %}
+            <div class="meta-item">
+                <span class="meta-label">Target Iters</span>
+                <span class="meta-value">
+                    {% if feat.target_start_iter %}I{{ feat.target_start_iter }}{% endif %}
+                    {% if feat.target_start_iter and feat.target_end_iter %} → {% endif %}
+                    {% if feat.target_end_iter %}I{{ feat.target_end_iter }}{% endif %}
+                </span>
+            </div>
+            {% endif %}
+            <div class="meta-item">
+                <span class="meta-label">Refinement</span>
+                <span class="meta-value">{{ '{:.0f}'.format(feat.refinement_ratio * 100) }}%</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── Progress bar ── #}
+{% set total_sp = feat.total_story_points %}
+{% set done_sp  = feat.done_story_points %}
+{% set pct      = (done_sp / total_sp * 100) if total_sp > 0 else 0 %}
+<div class="card" style="padding: 16px 24px; margin-bottom: 24px;">
+    <div class="plan-summary-row">
+        <div class="plan-stat">
+            <span class="plan-stat-label">Stories</span>
+            <span class="plan-stat-value">{{ feat.stories | length }}</span>
+        </div>
+        <div class="plan-stat">
+            <span class="plan-stat-label">Total Story Points</span>
+            <span class="plan-stat-value">{{ '{:,.1f}'.format(total_sp) }}</span>
+        </div>
+        <div class="plan-stat">
+            <span class="plan-stat-label">Done</span>
+            <span class="plan-stat-value">{{ '{:,.1f}'.format(done_sp) }}</span>
+        </div>
+        <div class="plan-stat" style="flex: 2;">
+            <span class="plan-stat-label">Progress</span>
+            <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width: {{ pct | round(1) }}%;"></div>
+                <span class="progress-bar-label">{{ pct | round(1) }}%</span>
+            </div>
+        </div>
+        <div>
+            <button class="btn btn-outline-accent btn-sm"
+                    onclick="document.getElementById('add-story-modal').showModal()">
+                + Add Story
+            </button>
+        </div>
+    </div>
+</div>
+
+{# ── Stories ── #}
+{% if not feat.stories %}
+<div class="card" style="padding: 40px; text-align: center; color: var(--text-secondary);">
+    <p style="margin: 0 0 16px 0;">No stories yet. Stories are the atomic unit of earned value.</p>
+    <button class="btn primary"
+            onclick="document.getElementById('add-story-modal').showModal()">
+        + Add First Story
+    </button>
+</div>
+{% else %}
+
+{% for group in groups %}
+<div class="story-group card" style="margin-bottom: 16px; padding: 0; overflow:hidden;">
+    <div class="story-group-header">
+        {% if group.iteration %}
+            <span class="story-group-label">Iteration {{ group.iteration.number }}</span>
+            <span class="story-group-dates">{{ group.iteration.start_date }} → {{ group.iteration.end_date }}</span>
+            {% if group.iteration.goal %}
+            <span class="story-group-goal">{{ group.iteration.goal }}</span>
+            {% endif %}
+        {% else %}
+            <span class="story-group-label">Backlog</span>
+            <span class="story-group-dates">Not yet assigned to an iteration</span>
+        {% endif %}
+    </div>
+    <table class="data-table story-table">
+        <thead>
+            <tr>
+                <th>Story</th>
+                <th style="text-align:right;">SP</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for story in group.stories %}
+        <tr class="{{ 'story-blocked' if story.blocked }}">
+            <td>
+                <div class="story-name">
+                    {{ story.name }}
+                    {% if story.blocked %}<span class="badge badge-blocked" title="{{ story.blocked_reason or '' }}">BLOCKED</span>{% endif %}
+                </div>
+                {% if story.description %}
+                <div class="story-sub">{{ story.description }}</div>
+                {% endif %}
+                {% if story.acceptance_criteria %}
+                <div class="story-ac">AC: {{ story.acceptance_criteria }}</div>
+                {% endif %}
+            </td>
+            <td style="text-align:right; font-weight:600;">{{ story.story_points }}</td>
+            <td>
+                <div class="story-status-cell">
+                    <span class="status-badge status-{{ story.status }}">{{ story.status }}</span>
+                    {% if story.status != 'done' %}
+                    <form method="POST"
+                          action="{{ url_for('work.story_status', project_id=project.id, story_id=story.id) }}"
+                          style="display:inline;">
+                        <input type="hidden" name="action" value="advance">
+                        <button type="submit" class="btn-advance" title="Advance status">→</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </td>
+            <td style="white-space:nowrap;">
+                <button class="btn btn-ghost-neutral btn-sm"
+                        onclick="openEditStory(
+                            '{{ story.id }}',
+                            '{{ story.name|e }}',
+                            '{{ (story.description or '')|e }}',
+                            '{{ (story.acceptance_criteria or '')|e }}',
+                            {{ story.story_points }},
+                            '{{ story.iteration_id or '' }}',
+                            {{ 'true' if story.blocked else 'false' }},
+                            '{{ (story.blocked_reason or '')|e }}'
+                        )">Edit</button>
+                <form method="POST"
+                      action="{{ url_for('work.delete_story', project_id=project.id, story_id=story.id) }}"
+                      style="display:inline;"
+                      onsubmit="return confirm('Delete story {{ story.name|e }}?');">
+                    <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+
+{% endif %}{# end if not feat.stories #}
+
+
+{# ── Add Story Modal ── #}
+<dialog id="add-story-modal" class="modal" style="min-width: 560px;">
+    <form method="POST" action="{{ url_for('work.add_story', project_id=project.id, feat_id=feat.id) }}">
+        <h3>Add Story</h3>
+        <div class="row">
+            <div class="form-group" style="flex:3;">
+                <label>Name <span class="required">*</span></label>
+                <input type="text" name="name" required placeholder="As a user, I can...">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Story Points</label>
+                <input type="number" name="story_points" step="0.5" min="0.5" value="1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" rows="2" placeholder="Additional context..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Acceptance Criteria</label>
+            <textarea name="acceptance_criteria" rows="2" placeholder="Given / When / Then..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Assign to Iteration</label>
+            <select name="iteration_id">
+                <option value="">— Backlog —</option>
+                {% for it in iterations %}
+                <option value="{{ it.id }}">Iteration {{ it.number }} ({{ it.start_date }} → {{ it.end_date }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button type="submit" class="btn primary btn-sm">Add Story</button>
+            <button type="button" class="btn btn-ghost-neutral btn-sm"
+                    onclick="document.getElementById('add-story-modal').close()">Cancel</button>
+        </div>
+    </form>
+</dialog>
+
+{# ── Edit Story Modal ── #}
+<dialog id="edit-story-modal" class="modal" style="min-width: 560px;">
+    <form method="POST" id="edit-story-form">
+        <h3>Edit Story</h3>
+        <div class="row">
+            <div class="form-group" style="flex:3;">
+                <label>Name <span class="required">*</span></label>
+                <input type="text" name="name" id="es-name" required>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Story Points</label>
+                <input type="number" name="story_points" id="es-sp" step="0.5" min="0.5">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" id="es-desc" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Acceptance Criteria</label>
+            <textarea name="acceptance_criteria" id="es-ac" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Assign to Iteration</label>
+            <select name="iteration_id" id="es-iter">
+                <option value="">— Backlog —</option>
+                {% for it in iterations %}
+                <option value="{{ it.id }}">Iteration {{ it.number }} ({{ it.start_date }} → {{ it.end_date }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" name="blocked" id="es-blocked"
+                       onchange="document.getElementById('es-blocked-wrap').style.display=this.checked?'':'none'">
+                Blocked
+            </label>
+        </div>
+        <div class="form-group" id="es-blocked-wrap" style="display:none;">
+            <label>Blocked Reason</label>
+            <input type="text" name="blocked_reason" id="es-blocked-reason">
+        </div>
+        <div class="modal-actions">
+            <button type="submit" class="btn primary btn-sm">Save</button>
+            <button type="button" class="btn btn-ghost-neutral btn-sm"
+                    onclick="document.getElementById('edit-story-modal').close()">Cancel</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+function openEditStory(id, name, desc, ac, sp, iterId, blocked, blockedReason) {
+    document.getElementById('edit-story-form').action =
+        `/project/{{ project.id }}/work/story/${id}/edit`;
+    document.getElementById('es-name').value  = name;
+    document.getElementById('es-desc').value  = desc;
+    document.getElementById('es-ac').value    = ac;
+    document.getElementById('es-sp').value    = sp;
+    const sel = document.getElementById('es-iter');
+    for (let o of sel.options) { o.selected = (o.value === iterId); }
+    const cb = document.getElementById('es-blocked');
+    cb.checked = blocked;
+    document.getElementById('es-blocked-reason').value = blockedReason;
+    document.getElementById('es-blocked-wrap').style.display = blocked ? '' : 'none';
+    document.getElementById('edit-story-modal').showModal();
+}
+</script>
+{% endblock %}

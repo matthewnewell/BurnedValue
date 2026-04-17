@@ -1,0 +1,366 @@
+{% extends "layout.html" %}
+
+{% block content %}
+{% include '_project_nav.html' %}
+
+<h2 style="margin-bottom: 20px;">Work</h2>
+
+{# ── Sub-nav ── #}
+<div class="section-tabs" style="margin-bottom: 24px;">
+    <span class="section-tab active">Release Plan</span>
+    <a class="section-tab" href="{{ url_for('work.backlog', project_id=project.id) }}">Backlog</a>
+    <a class="section-tab" href="{{ url_for('work.setup', project_id=project.id) }}">Iterations &amp; Disciplines</a>
+</div>
+
+{# ── Summary bar ── #}
+{% set total_fp   = epics | sum(attribute='total_feature_points') %}
+{% set earned_fp  = epics | sum(attribute='earned_feature_points') %}
+{% set pct        = (earned_fp / total_fp * 100) if total_fp > 0 else 0 %}
+<div class="plan-summary card" style="margin-bottom: 24px; padding: 16px 24px;">
+    <div class="plan-summary-row">
+        <div class="plan-stat">
+            <span class="plan-stat-label">Epics</span>
+            <span class="plan-stat-value">{{ epics | length }}</span>
+        </div>
+        <div class="plan-stat">
+            <span class="plan-stat-label">Total Feature Points</span>
+            <span class="plan-stat-value">{{ '{:,.0f}'.format(total_fp) }}</span>
+        </div>
+        <div class="plan-stat">
+            <span class="plan-stat-label">Earned Feature Points</span>
+            <span class="plan-stat-value">{{ '{:,.1f}'.format(earned_fp) }}</span>
+        </div>
+        <div class="plan-stat" style="flex: 2;">
+            <span class="plan-stat-label">Overall Progress</span>
+            <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width: {{ pct | round(1) }}%;"></div>
+                <span class="progress-bar-label">{{ pct | round(1) }}%</span>
+            </div>
+        </div>
+        <div>
+            <button class="btn btn-outline-accent btn-sm" onclick="document.getElementById('add-epic-modal').showModal()">+ Add Epic</button>
+        </div>
+    </div>
+</div>
+
+{# ── Epic list ── #}
+{% if not epics %}
+<div class="card" style="padding: 40px; text-align: center; color: var(--text-secondary);">
+    <p style="margin: 0 0 16px 0;">No epics yet. Epics are major capability areas that contain Features.</p>
+    <button class="btn primary" onclick="document.getElementById('add-epic-modal').showModal()">+ Add First Epic</button>
+</div>
+{% endif %}
+
+{% for epic in epics %}
+{% set epic_pct = epic.percent_complete %}
+<div class="epic-block card" style="margin-bottom: 16px;">
+
+    {# Epic header #}
+    <div class="epic-header" onclick="toggleEpic('epic-body-{{ epic.id }}', this)">
+        <div class="epic-chevron">▶</div>
+        <div class="epic-title-group">
+            <span class="epic-name">{{ epic.name }}</span>
+            {% if epic.description %}
+            <span class="epic-desc">{{ epic.description }}</span>
+            {% endif %}
+        </div>
+        <div class="epic-meta">
+            <span class="epic-fp">{{ '{:,.0f}'.format(epic.total_feature_points) }} fp</span>
+            <div class="progress-bar-wrap" style="width: 160px;">
+                <div class="progress-bar-fill" style="width: {{ epic_pct | round(1) }}%;"></div>
+                <span class="progress-bar-label">{{ epic_pct | round(1) }}%</span>
+            </div>
+        </div>
+        <div class="epic-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-ghost-neutral btn-sm"
+                    onclick="openEditEpic('{{ epic.id }}','{{ epic.name|e }}','{{ (epic.description or '')|e }}')">
+                Edit
+            </button>
+            <form method="POST"
+                  action="{{ url_for('work.delete_epic', project_id=project.id, epic_id=epic.id) }}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Delete epic {{ epic.name|e }} and all its features?');">
+                <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+            </form>
+        </div>
+    </div>
+
+    {# Feature table #}
+    <div class="epic-body" id="epic-body-{{ epic.id }}">
+        {% if epic.features %}
+        <table class="data-table feature-table">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th style="text-align:right;">FP</th>
+                    <th>Status</th>
+                    <th>Iters</th>
+                    <th style="text-align:right;">Stories</th>
+                    <th style="text-align:right;">Refinement</th>
+                    <th style="text-align:right;">% Done</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for feat in epic.features %}
+                <tr class="{{ 'feat-blocked' if feat.blocked }}">
+                    <td>
+                        <a href="{{ url_for('work.feature_detail', project_id=project.id, feat_id=feat.id) }}"
+                           style="color:inherit; text-decoration:none; font-weight:500;"
+                           onmouseover="this.style.textDecoration='underline'"
+                           onmouseout="this.style.textDecoration='none'">{{ feat.name }}</a>
+                        {% if feat.blocked %}<span class="badge badge-blocked" title="{{ feat.blocked_reason or 'Blocked' }}">BLOCKED</span>{% endif %}
+                        {% if feat.description %}<div class="feat-desc">{{ feat.description }}</div>{% endif %}
+                    </td>
+                    <td style="text-align:right;">{{ '{:,.0f}'.format(feat.feature_points) }}</td>
+                    <td><span class="status-badge status-{{ feat.status }}">{{ feat.status }}</span></td>
+                    <td style="white-space:nowrap;">
+                        {% if feat.target_start_iter %}I{{ feat.target_start_iter }}{% endif %}
+                        {% if feat.target_start_iter and feat.target_end_iter %} → {% endif %}
+                        {% if feat.target_end_iter %}I{{ feat.target_end_iter }}{% endif %}
+                        {% if not feat.target_start_iter and not feat.target_end_iter %}—{% endif %}
+                    </td>
+                    <td style="text-align:right;">{{ feat.stories | length }}</td>
+                    <td style="text-align:right;">
+                        {% if feat.feature_points > 0 %}
+                            {{ '{:.0f}'.format(feat.refinement_ratio * 100) }}%
+                        {% else %}—{% endif %}
+                    </td>
+                    <td style="text-align:right;">{{ '{:.0f}'.format(feat.percent_complete * 100) }}%</td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn btn-ghost-neutral btn-sm"
+                                onclick="openEditFeat(
+                                    '{{ feat.id }}',
+                                    '{{ feat.name|e }}',
+                                    '{{ (feat.description or '')|e }}',
+                                    {{ feat.feature_points }},
+                                    '{{ feat.target_start_iter or '' }}',
+                                    '{{ feat.target_end_iter or '' }}',
+                                    '{{ feat.status }}',
+                                    {{ 'true' if feat.blocked else 'false' }},
+                                    '{{ (feat.blocked_reason or '')|e }}'
+                                )">Edit</button>
+                        <form method="POST"
+                              action="{{ url_for('work.delete_feature', project_id=project.id, feat_id=feat.id) }}"
+                              style="display:inline;"
+                              onsubmit="return confirm('Delete feature {{ feat.name|e }}?');">
+                            <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td style="color:var(--text-secondary); font-size:0.8rem;">{{ epic.features | length }} feature{{ 's' if epic.features | length != 1 }}</td>
+                    <td style="text-align:right; font-weight:600;">{{ '{:,.0f}'.format(epic.total_feature_points) }}</td>
+                    <td colspan="6"></td>
+                </tr>
+            </tfoot>
+        </table>
+        {% else %}
+        <p class="empty-state" style="padding: 0 20px 16px;">No features yet.</p>
+        {% endif %}
+
+        <div style="padding: 12px 20px 16px;">
+            <button class="btn btn-outline-accent btn-sm"
+                    onclick="openAddFeat('{{ epic.id }}', '{{ epic.name|e }}')">
+                + Add Feature
+            </button>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+
+{# ── Add Epic Modal ── #}
+<dialog id="add-epic-modal" class="modal">
+    <form method="POST" action="{{ url_for('work.add_epic', project_id=project.id) }}">
+        <h3>Add Epic</h3>
+        <div class="form-group">
+            <label>Name <span class="required">*</span></label>
+            <input type="text" name="name" required placeholder="e.g. Authentication & Identity">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" rows="2" placeholder="Brief summary of this epic..."></textarea>
+        </div>
+        <div class="modal-actions">
+            <button type="submit" class="btn primary btn-sm">Add Epic</button>
+            <button type="button" class="btn btn-ghost-neutral btn-sm"
+                    onclick="document.getElementById('add-epic-modal').close()">Cancel</button>
+        </div>
+    </form>
+</dialog>
+
+{# ── Edit Epic Modal ── #}
+<dialog id="edit-epic-modal" class="modal">
+    <form method="POST" id="edit-epic-form">
+        <h3>Edit Epic</h3>
+        <div class="form-group">
+            <label>Name <span class="required">*</span></label>
+            <input type="text" name="name" id="edit-epic-name" required>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" id="edit-epic-desc" rows="2"></textarea>
+        </div>
+        <div class="modal-actions">
+            <button type="submit" class="btn primary btn-sm">Save</button>
+            <button type="button" class="btn btn-ghost-neutral btn-sm"
+                    onclick="document.getElementById('edit-epic-modal').close()">Cancel</button>
+        </div>
+    </form>
+</dialog>
+
+{# ── Add Feature Modal ── #}
+<dialog id="add-feat-modal" class="modal" style="min-width: 560px;">
+    <form method="POST" id="add-feat-form">
+        <h3>Add Feature to <span id="add-feat-epic-name"></span></h3>
+        <div class="row">
+            <div class="form-group" style="flex:2;">
+                <label>Name <span class="required">*</span></label>
+                <input type="text" name="name" required placeholder="e.g. OAuth2 login flow">
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Feature Points</label>
+                <input type="number" name="feature_points" step="0.5" min="0" value="0">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" rows="2" placeholder="What this feature delivers..."></textarea>
+        </div>
+        <div class="row">
+            <div class="form-group">
+                <label>Target Start Iter #</label>
+                <input type="number" name="target_start_iter" min="1" step="1" placeholder="e.g. 2">
+            </div>
+            <div class="form-group">
+                <label>Target End Iter #</label>
+                <input type="number" name="target_end_iter" min="1" step="1" placeholder="e.g. 4">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select name="status">
+                    <option value="planned">planned</option>
+                    <option value="refined">refined</option>
+                    <option value="active">active</option>
+                    <option value="complete">complete</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button type="submit" class="btn primary btn-sm">Add Feature</button>
+            <button type="button" class="btn btn-ghost-neutral btn-sm"
+                    onclick="document.getElementById('add-feat-modal').close()">Cancel</button>
+        </div>
+    </form>
+</dialog>
+
+{# ── Edit Feature Modal ── #}
+<dialog id="edit-feat-modal" class="modal" style="min-width: 560px;">
+    <form method="POST" id="edit-feat-form">
+        <h3>Edit Feature</h3>
+        <div class="row">
+            <div class="form-group" style="flex:2;">
+                <label>Name <span class="required">*</span></label>
+                <input type="text" name="name" id="ef-name" required>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Feature Points</label>
+                <input type="number" name="feature_points" id="ef-fp" step="0.5" min="0">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" id="ef-desc" rows="2"></textarea>
+        </div>
+        <div class="row">
+            <div class="form-group">
+                <label>Target Start Iter #</label>
+                <input type="number" name="target_start_iter" id="ef-tsi" min="1" step="1">
+            </div>
+            <div class="form-group">
+                <label>Target End Iter #</label>
+                <input type="number" name="target_end_iter" id="ef-tei" min="1" step="1">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select name="status" id="ef-status">
+                    <option value="planned">planned</option>
+                    <option value="refined">refined</option>
+                    <option value="active">active</option>
+                    <option value="complete">complete</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" name="blocked" id="ef-blocked" onchange="toggleBlockedReason(this)">
+                Blocked
+            </label>
+        </div>
+        <div class="form-group" id="ef-blocked-reason-wrap" style="display:none;">
+            <label>Blocked Reason</label>
+            <input type="text" name="blocked_reason" id="ef-blocked-reason">
+        </div>
+        <div class="modal-actions">
+            <button type="submit" class="btn primary btn-sm">Save</button>
+            <button type="button" class="btn btn-ghost-neutral btn-sm"
+                    onclick="document.getElementById('edit-feat-modal').close()">Cancel</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+// ── Epic accordion ──
+function toggleEpic(bodyId, header) {
+    const body    = document.getElementById(bodyId);
+    const chevron = header.querySelector('.epic-chevron');
+    const open    = body.classList.toggle('open');
+    chevron.textContent = open ? '▼' : '▶';
+}
+
+// Auto-open all epics on load
+document.querySelectorAll('.epic-body').forEach(b => {
+    b.classList.add('open');
+    b.closest('.epic-block').querySelector('.epic-chevron').textContent = '▼';
+});
+
+// ── Edit Epic ──
+function openEditEpic(id, name, desc) {
+    document.getElementById('edit-epic-form').action = `/project/{{ project.id }}/work/epic/${id}/edit`;
+    document.getElementById('edit-epic-name').value = name;
+    document.getElementById('edit-epic-desc').value = desc;
+    document.getElementById('edit-epic-modal').showModal();
+}
+
+// ── Add Feature ──
+function openAddFeat(epicId, epicName) {
+    document.getElementById('add-feat-form').action = `/project/{{ project.id }}/work/epic/${epicId}/feature/add`;
+    document.getElementById('add-feat-epic-name').textContent = epicName;
+    document.getElementById('add-feat-modal').showModal();
+}
+
+// ── Edit Feature ──
+function openEditFeat(id, name, desc, fp, tsi, tei, status, blocked, blockedReason) {
+    document.getElementById('edit-feat-form').action = `/project/{{ project.id }}/work/feature/${id}/edit`;
+    document.getElementById('ef-name').value   = name;
+    document.getElementById('ef-desc').value   = desc;
+    document.getElementById('ef-fp').value     = fp;
+    document.getElementById('ef-tsi').value    = tsi;
+    document.getElementById('ef-tei').value    = tei;
+    document.getElementById('ef-status').value = status;
+    const cb = document.getElementById('ef-blocked');
+    cb.checked = blocked;
+    document.getElementById('ef-blocked-reason').value = blockedReason;
+    toggleBlockedReason(cb);
+    document.getElementById('edit-feat-modal').showModal();
+}
+
+function toggleBlockedReason(cb) {
+    document.getElementById('ef-blocked-reason-wrap').style.display = cb.checked ? '' : 'none';
+}
+</script>
+{% endblock %}

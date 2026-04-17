@@ -1,33 +1,34 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<div class="header-row">
-    <div>
-        <h1>Projects</h1>
-        <div class="subtitle">Select a project to view its Burned Value dashboard</div>
-    </div>
-    <a href="{{ url_for('create_project') }}" class="btn primary">+ New Project</a>
-</div>
-
 <div class="project-grid">
     {% for project in projects %}
-    <div class="project-card card {{ 'demo-card' if project.is_demo }}">
+    <a href="{{ url_for('dashboard', project_id=project.id) }}" class="project-card card {{ 'demo-card' if project.is_demo }}">
 
         <div class="project-card-header">
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <span class="project-name">{{ project.name }}</span>
                 {% if project.is_demo %}
                 <span class="badge badge-demo">DEMO</span>
                 {% endif %}
             </div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <div style="display:flex; flex-direction:column; gap:4px; align-items:stretch;">
                 {% if project.metrics.cpi > 0 %}
-                    <span class="badge {{ 'badge-success' if project.metrics.cpi >= 1.0 else ('badge-warning' if project.metrics.cpi >= 0.95 else 'badge-danger') }}">
-                        CPI {{ project.metrics.cpi }}
+                    {% if project.metrics.eac > 0 %}
+                    {% set eac_k = (project.metrics.eac / 1000) | round | int %}
+                    {% set cv = project.contract_value or project.bac %}
+                    <span class="badge badge-metric-eac {{ 'badge-danger' if project.metrics.eac > cv else ('badge-warning' if project.metrics.eac > project.bac else 'badge-success') }}">
+                        EAC ${{ eac_k }}k
                     </span>
-                    <span class="badge {{ 'badge-success' if project.metrics.spi >= 1.0 else ('badge-warning' if project.metrics.spi >= 0.95 else 'badge-danger') }}">
-                        SPI {{ project.metrics.spi }}
-                    </span>
+                    {% endif %}
+                    <div style="display:flex; gap:6px; justify-content:center;">
+                        <span class="badge badge-metric {{ 'badge-success' if project.metrics.cpi >= 1.0 else ('badge-warning' if project.metrics.cpi >= 0.95 else 'badge-danger') }}">
+                            CPI {{ project.metrics.cpi }}
+                        </span>
+                        <span class="badge badge-metric {{ 'badge-success' if project.metrics.spi >= 1.0 else ('badge-warning' if project.metrics.spi >= 0.95 else 'badge-danger') }}">
+                            SPI {{ project.metrics.spi }}
+                        </span>
+                    </div>
                 {% else %}
                     <span class="badge badge-neutral">No Data</span>
                 {% endif %}
@@ -38,27 +39,19 @@
         <p class="project-description">{{ project.description }}</p>
         {% endif %}
 
+        {% if project.contract_value %}
         <div class="project-meta">
-            {% if project.contract_value %}
             <span>Contract Value: <strong>${{ "{:,.0f}".format(project.contract_value) }}</strong></span>
-            {% endif %}
-        </div>
-        <div class="project-meta" style="margin-top: 2px;">
-            <span>BAC (Baseline): <strong>${{ "{:,.0f}".format(project.bac) }}</strong></span>
-        </div>
-        {% if project.metrics.eac > 0 %}
-        <div class="project-meta" style="margin-top: 2px;">
-            <span>EAC (Current): <strong class="{{ 'text-danger' if project.metrics.eac > (project.contract_value or project.bac) else ('text-warning' if project.metrics.eac > project.bac else 'text-success') }}">${{ "{:,.0f}".format(project.metrics.eac) }}</strong></span>
         </div>
         {% endif %}
 
-        <div class="project-meta" style="margin-top: 4px;">
+        <div class="project-meta">
             <span>PoP: <strong>{{ project.start_date|fmtdate }} → {{ project.end_date|fmtdate }}</strong></span>
         </div>
 
         {% if project.metrics.cpi > 0 %}
-        <div class="project-meta" style="margin-top: 6px;">
-            <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ project.metrics.percent_complete }}% complete</span>
+        <div class="project-meta" style="margin-top: 2px;">
+            <span style="font-size:0.8rem; color:var(--text-secondary);">{{ project.metrics.percent_complete }}% complete</span>
         </div>
         <div class="progress-bar-wrap">
             <div class="progress-bar-fill {{ 'fill-danger' if project.metrics.cpi < 0.95 else ('fill-warning' if project.metrics.cpi < 1.0 else 'fill-success') }}"
@@ -66,25 +59,11 @@
         </div>
         {% endif %}
 
-        <div class="project-card-actions">
-            <a href="{{ url_for('dashboard', project_id=project.id) }}" class="btn btn-outline-accent">Dashboard</a>
-            <a href="{{ url_for('bluf', project_id=project.id) }}" class="btn btn-outline-accent">BLUF</a>
-            {% if project.is_demo %}
-            <form method="POST" action="{{ url_for('reset_demo') }}">
-                <button type="submit" class="btn btn-ghost-neutral" title="Restore demo to its original state">↺ Reset Demo</button>
-            </form>
-            {% else %}
-            <form method="POST" action="{{ url_for('delete_project', project_id=project.id) }}"
-                  onsubmit="return confirm('Delete {{ project.name }}? This cannot be undone.')">
-                <button type="submit" class="btn btn-ghost-danger">Delete</button>
-            </form>
-            {% endif %}
-        </div>
-    </div>
+    </a>
     {% else %}
-    <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 60px;">
+    <div class="card" style="grid-column:1/-1; text-align:center; padding:60px;">
         <h3>No projects yet</h3>
-        <p style="color: var(--text-secondary); margin-bottom: 20px;">Create your first project to start tracking Earned Value.</p>
+        <p style="color:var(--text-secondary); margin-bottom:20px;">Create your first project to start tracking Earned Value.</p>
         <a href="{{ url_for('create_project') }}" class="btn primary">Create Project</a>
     </div>
     {% endfor %}

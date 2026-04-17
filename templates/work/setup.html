@@ -1,0 +1,246 @@
+{% extends "layout.html" %}
+
+{% block content %}
+{% include '_project_nav.html' %}
+
+<h2 style="margin-bottom: 20px;">Work</h2>
+
+{# ── Sub-nav ── #}
+<div class="section-tabs" style="margin-bottom: 24px;">
+    <a class="section-tab" href="{{ url_for('work.plan', project_id=project.id) }}">Release Plan</a>
+    <a class="section-tab" href="{{ url_for('work.backlog', project_id=project.id) }}">Backlog</a>
+    <span class="section-tab active">Iterations &amp; Disciplines</span>
+</div>
+
+{# ── Two-column layout ── #}
+<div class="setup-columns">
+
+    {# ── LEFT: Disciplines ── #}
+    <section class="setup-section card">
+        <h3>Disciplines</h3>
+        <p class="subtitle">Labor categories and charge numbers. Planned hours × avg rate = PV contribution per iteration.</p>
+
+        {% if disciplines %}
+        <table class="data-table" style="margin-bottom: 16px;">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Charge #</th>
+                    <th style="text-align:right;">Avg Rate</th>
+                    <th style="text-align:right;">Planned hrs/period</th>
+                    <th style="text-align:right;">PV/period</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in disciplines %}
+                <tr id="disc-row-{{ d.id }}">
+                    <td>{{ d.name }}</td>
+                    <td>{{ d.charge_number or '—' }}</td>
+                    <td style="text-align:right;">${{ '{:,.2f}'.format(d.avg_rate) }}</td>
+                    <td style="text-align:right;">{{ '{:,.1f}'.format(d.planned_hours_per_period) }}</td>
+                    <td style="text-align:right;">${{ '{:,.0f}'.format(d.planned_cost_per_period) }}</td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn btn-ghost-neutral btn-sm"
+                                onclick="openEditDisc('{{ d.id }}','{{ d.name|e }}','{{ d.charge_number or '' }}',{{ d.avg_rate }},{{ d.planned_hours_per_period }})">
+                            Edit
+                        </button>
+                        <form method="POST"
+                              action="{{ url_for('work.delete_discipline', project_id=project.id, disc_id=d.id) }}"
+                              style="display:inline;"
+                              onsubmit="return confirm('Delete discipline {{ d.name|e }}?');">
+                            <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr style="font-weight: 600; border-top: 2px solid var(--border);">
+                    <td colspan="4" style="text-align:right; color: var(--text-secondary);">Total PV / period</td>
+                    <td style="text-align:right;">${{ '{:,.0f}'.format(disciplines | sum(attribute='planned_cost_per_period')) }}</td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No disciplines yet. Add one below.</p>
+        {% endif %}
+
+        {# Add discipline form #}
+        <details class="inline-form-toggle" {% if not disciplines %}open{% endif %}>
+            <summary class="btn btn-outline-accent btn-sm">+ Add Discipline</summary>
+            <form method="POST"
+                  action="{{ url_for('work.add_discipline', project_id=project.id) }}"
+                  class="inline-form">
+                <div class="row">
+                    <div class="form-group">
+                        <label>Name <span class="required">*</span></label>
+                        <input type="text" name="name" required placeholder="e.g. Software">
+                    </div>
+                    <div class="form-group">
+                        <label>Charge Number</label>
+                        <input type="text" name="charge_number" placeholder="e.g. 1234-SW">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label>Avg Rate ($/hr)</label>
+                        <input type="number" name="avg_rate" step="0.01" min="0" value="0" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Planned hrs / period</label>
+                        <input type="number" name="planned_hours_per_period" step="0.5" min="0" value="0" placeholder="0">
+                    </div>
+                </div>
+                <button type="submit" class="btn primary btn-sm">Add Discipline</button>
+            </form>
+        </details>
+    </section>
+
+    {# ── RIGHT: Iterations ── #}
+    <section class="setup-section card">
+        <h3>Iterations</h3>
+        <p class="subtitle">Time-boxed execution periods aligned to the accounting cost report cycle.</p>
+
+        {% if iterations %}
+        <table class="data-table" style="margin-bottom: 16px;">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Goal</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in iterations %}
+                <tr>
+                    <td>{{ it.number }}</td>
+                    <td>{{ it.start_date }}</td>
+                    <td>{{ it.end_date }}</td>
+                    <td>{{ it.goal or '—' }}</td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn btn-ghost-neutral btn-sm"
+                                onclick="openEditIter('{{ it.id }}','{{ it.start_date }}','{{ it.end_date }}','{{ (it.goal or '')|e }}')">
+                            Edit
+                        </button>
+                        <form method="POST"
+                              action="{{ url_for('work.delete_iteration', project_id=project.id, iter_id=it.id) }}"
+                              style="display:inline;"
+                              onsubmit="return confirm('Delete Iteration {{ it.number }}?');">
+                            <button type="submit" class="btn btn-ghost-danger btn-sm">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No iterations yet. Add one below.</p>
+        {% endif %}
+
+        {# Add iteration form #}
+        <details class="inline-form-toggle" {% if not iterations %}open{% endif %}>
+            <summary class="btn btn-outline-accent btn-sm">+ Add Iteration</summary>
+            <form method="POST"
+                  action="{{ url_for('work.add_iteration', project_id=project.id) }}"
+                  class="inline-form">
+                <div class="row">
+                    <div class="form-group">
+                        <label>Start Date <span class="required">*</span></label>
+                        <input type="date" name="start_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>End Date <span class="required">*</span></label>
+                        <input type="date" name="end_date" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Iteration Goal</label>
+                    <input type="text" name="goal" placeholder="e.g. Complete auth module and CI pipeline">
+                </div>
+                <button type="submit" class="btn primary btn-sm">Add Iteration</button>
+            </form>
+        </details>
+    </section>
+</div>
+
+{# ── Edit Discipline Modal ── #}
+<dialog id="edit-disc-modal" class="modal">
+    <form method="POST" id="edit-disc-form">
+        <h3>Edit Discipline</h3>
+        <div class="row">
+            <div class="form-group">
+                <label>Name <span class="required">*</span></label>
+                <input type="text" name="name" id="edit-disc-name" required>
+            </div>
+            <div class="form-group">
+                <label>Charge Number</label>
+                <input type="text" name="charge_number" id="edit-disc-charge">
+            </div>
+        </div>
+        <div class="row">
+            <div class="form-group">
+                <label>Avg Rate ($/hr)</label>
+                <input type="number" name="avg_rate" id="edit-disc-rate" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+                <label>Planned hrs / period</label>
+                <input type="number" name="planned_hours_per_period" id="edit-disc-hours" step="0.5" min="0">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button type="submit" class="btn primary btn-sm">Save</button>
+            <button type="button" class="btn btn-ghost-neutral btn-sm"
+                    onclick="document.getElementById('edit-disc-modal').close()">Cancel</button>
+        </div>
+    </form>
+</dialog>
+
+{# ── Edit Iteration Modal ── #}
+<dialog id="edit-iter-modal" class="modal">
+    <form method="POST" id="edit-iter-form">
+        <h3>Edit Iteration</h3>
+        <div class="row">
+            <div class="form-group">
+                <label>Start Date <span class="required">*</span></label>
+                <input type="date" name="start_date" id="edit-iter-start" required>
+            </div>
+            <div class="form-group">
+                <label>End Date <span class="required">*</span></label>
+                <input type="date" name="end_date" id="edit-iter-end" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Iteration Goal</label>
+            <input type="text" name="goal" id="edit-iter-goal">
+        </div>
+        <div class="modal-actions">
+            <button type="submit" class="btn primary btn-sm">Save</button>
+            <button type="button" class="btn btn-ghost-neutral btn-sm"
+                    onclick="document.getElementById('edit-iter-modal').close()">Cancel</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+function openEditDisc(id, name, charge, rate, hours) {
+    const form = document.getElementById('edit-disc-form');
+    form.action = `/project/{{ project.id }}/work/discipline/${id}/edit`;
+    document.getElementById('edit-disc-name').value   = name;
+    document.getElementById('edit-disc-charge').value = charge;
+    document.getElementById('edit-disc-rate').value   = rate;
+    document.getElementById('edit-disc-hours').value  = hours;
+    document.getElementById('edit-disc-modal').showModal();
+}
+
+function openEditIter(id, start, end, goal) {
+    const form = document.getElementById('edit-iter-form');
+    form.action = `/project/{{ project.id }}/work/iteration/${id}/edit`;
+    document.getElementById('edit-iter-start').value = start;
+    document.getElementById('edit-iter-end').value   = end;
+    document.getElementById('edit-iter-goal').value  = goal;
+    document.getElementById('edit-iter-modal').showModal();
+}
+</script>
+{% endblock %}
