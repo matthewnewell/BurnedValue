@@ -161,6 +161,17 @@ class TestVelocity:
 
 class TestEdgeCases:
 
+    def test_zero_scope_returns_zero_state_not_phantom_data(self, simple_project):
+        """DEF-01 fixed: with baseline_scope=0 and no scope_delta, metrics should be
+        zero-state rather than computed against a phantom scope of 1."""
+        project = {**simple_project, 'baseline_scope': 0.0}
+        periods = [{'period_id': 'p1', 'date': '2026-01-15',
+                    'actual_cost': 10000.0, 'points_completed': 5.0, 'scope_delta': 0.0}]
+        metrics = CalculationEngine.compute_metrics(project, periods)
+        assert metrics['percent_complete'] == pytest.approx(0.0)
+        assert metrics['cpi'] == 0
+        assert metrics['total_scope'] == 0
+
     def test_zero_bac_does_not_crash(self):
         """Degenerate project with BAC=0 should not raise."""
         project = {

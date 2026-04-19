@@ -3,53 +3,41 @@
 {% include '_project_nav.html' %}
 
 <style>
-/* ── BLUF document styles ── */
 .bluf-wrap {
     padding-bottom: 60px;
+    max-width: 760px;
 }
 
-.bluf-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 28px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--border);
-}
-.bluf-header-left {}
-/* .bluf-doc-label is defined globally in style.css */
-.bluf-project-name {
-    font-size: 1.4rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    margin: 0 0 4px 0;
+/* ── Header ── */
+.bluf-doc-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
 }
 .bluf-generated {
     font-size: 0.78rem;
     color: var(--text-secondary);
-}
-.bluf-header-right {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-shrink: 0;
+    margin-top: 4px;
 }
 
 /* ── Verdict banner ── */
 .bluf-verdict {
     border-radius: 10px;
-    padding: 20px 24px;
+    padding: 18px 22px;
     margin-bottom: 24px;
     display: flex;
     align-items: flex-start;
-    gap: 16px;
+    gap: 14px;
 }
 .bluf-verdict.green  { background: rgba(63,185,80,0.08);  border: 1px solid rgba(63,185,80,0.3); }
 .bluf-verdict.yellow { background: rgba(210,153,34,0.08); border: 1px solid rgba(210,153,34,0.3); }
 .bluf-verdict.red    { background: rgba(248,81,73,0.08);  border: 1px solid rgba(248,81,73,0.3); }
 
 .bluf-rag-pill {
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -64,140 +52,85 @@
 .bluf-verdict.red    .bluf-rag-pill { background: rgba(248,81,73,0.2);  color: var(--danger); }
 
 .bluf-verdict-text {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     line-height: 1.6;
     color: var(--text-primary);
-    font-weight: 400;
 }
 
-/* ── Metric strip ── */
-.bluf-metrics {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
+/* ── KPI strip ── */
+.bluf-kpi-row {
+    display: flex;
+    gap: 0;
     margin-bottom: 28px;
-}
-.bluf-metric {
-    background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 8px;
+    overflow: hidden;
+}
+.bluf-kpi {
+    flex: 1;
     padding: 14px 16px;
     text-align: center;
+    border-right: 1px solid var(--border);
 }
-.bluf-metric-value {
+.bluf-kpi:last-child { border-right: none; }
+.bluf-kpi-val {
     font-size: 1.25rem;
     font-weight: 800;
     color: var(--text-primary);
     line-height: 1.2;
 }
-.bluf-metric-value.good    { color: var(--success); }
-.bluf-metric-value.caution { color: var(--warning); }
-.bluf-metric-value.bad     { color: var(--danger); }
-.bluf-metric-label {
-    font-size: 0.7rem;
+.bluf-kpi-val.good    { color: var(--success); }
+.bluf-kpi-val.caution { color: var(--warning); }
+.bluf-kpi-val.bad     { color: var(--danger); }
+.bluf-kpi-lbl {
+    font-size: 0.65rem;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin-top: 4px;
 }
 
-/* ── Section ── */
+/* ── Sections ── */
 .bluf-section {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 .bluf-section-title {
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-secondary);
     padding-bottom: 8px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     border-bottom: 1px solid var(--border);
 }
-.bluf-two-col {
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 20px;
-    align-items: start;
-}
-.bluf-narrative {
-    font-size: 0.875rem;
-    line-height: 1.75;
-    color: var(--text-primary);
-}
-.bluf-chart-mini {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-}
-.bluf-chart-mini canvas {
-    width: 100% !important;
-}
-
-/* ── Scope events list ── */
-.bluf-scope-events {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
-}
-.bluf-scope-pill {
-    font-size: 0.78rem;
-    padding: 3px 10px;
-    border-radius: 20px;
-    background: rgba(248,81,73,0.1);
-    border: 1px solid rgba(248,81,73,0.25);
-    color: var(--danger);
-}
-
-/* ── Risks / Actions ── */
-.bluf-ra-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-.bluf-list {
+.bluf-bullets {
     list-style: none;
     padding: 0;
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
-.bluf-list li {
+.bluf-bullets li {
     font-size: 0.85rem;
     line-height: 1.6;
     color: var(--text-primary);
-    padding: 10px 14px;
+    padding: 9px 14px;
     border-radius: 6px;
     display: flex;
     gap: 10px;
     align-items: flex-start;
 }
-.bluf-list.risks li {
-    background: rgba(248,81,73,0.06);
-    border-left: 3px solid var(--danger);
-}
-.bluf-list.actions li {
-    background: rgba(88,166,255,0.06);
-    border-left: 3px solid var(--accent);
-}
-.bluf-list .li-num {
-    font-weight: 700;
-    color: var(--accent);
-    flex-shrink: 0;
-    min-width: 18px;
-}
-.bluf-list .li-dot {
-    color: var(--danger);
-    flex-shrink: 0;
-    font-size: 1rem;
-    line-height: 1.5;
+.bluf-bullets.problem li    { background: rgba(248,81,73,0.06);  border-left: 3px solid var(--danger); }
+.bluf-bullets.opportunity li { background: rgba(88,166,255,0.06); border-left: 3px solid var(--accent); }
+.bluf-bullets.risk li       { background: rgba(210,153,34,0.06); border-left: 3px solid var(--warning); }
+.bluf-muted {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
 }
 
-/* ── No data state ── */
+/* ── No data ── */
 .bluf-no-data {
     text-align: center;
     padding: 60px 20px;
@@ -207,52 +140,26 @@
 
 /* ── Print ── */
 @media print {
-    .sidebar, .bluf-header-right { display: none !important; }
-    .bluf-verdict, .bluf-metric, .bluf-list li { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sidebar { display: none !important; }
+    .bluf-verdict, .bluf-kpi, .bluf-bullets li { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* ── Responsive ── */
-@media (max-width: 768px) {
-    .bluf-metrics {
-        grid-template-columns: repeat(3, 1fr);
-    }
-    .bluf-two-col {
-        grid-template-columns: 1fr;
-    }
-    .bluf-ra-grid {
-        grid-template-columns: 1fr;
-    }
-    .bluf-header {
-        flex-direction: column;
-        gap: 12px;
-    }
-    .bluf-header-right {
-        flex-shrink: unset;
-        width: 100%;
-        flex-wrap: wrap;
-    }
-}
-
-@media (max-width: 480px) {
-    .bluf-metrics {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    .bluf-wrap {
-        padding-bottom: 32px;
-    }
+@media (max-width: 600px) {
+    .bluf-kpi-row { flex-wrap: wrap; }
+    .bluf-kpi { flex: 1 1 45%; border-bottom: 1px solid var(--border); }
 }
 </style>
 
 <div class="bluf-wrap">
 
-    {# ── Header ── #}
     <div class="header-row">
         <div>
-            <div class="bluf-doc-label">Bottom Line Up Front (BLUF)</div>
+            <div class="bluf-doc-label">Bottom Line Up Front</div>
             <h2>{{ project.name }}
-                {% if project.is_demo %}<span class="badge badge-demo" style="vertical-align: middle; font-size: 0.6em;">DEMO</span>{% endif %}
+                {% if project.is_demo %}<span class="badge badge-demo" style="vertical-align:middle;font-size:0.6em;">DEMO</span>{% endif %}
             </h2>
-            <div class="bluf-generated">Generated {{ now.strftime('%B %d, %Y') if now else '' }}</div>
+            <div class="bluf-generated">{{ now.strftime('%B %d, %Y') if now else '' }}</div>
         </div>
     </div>
 
@@ -270,373 +177,78 @@
         <span class="bluf-verdict-text">{{ bluf.verdict }}</span>
     </div>
 
-    {# ── Key metrics strip ── #}
-    <div class="bluf-metrics">
-        <div class="bluf-metric">
-            <div class="bluf-metric-value">{{ bluf.pct_complete }}%</div>
-            <div class="bluf-metric-label">Complete</div>
+    {# ── KPI strip ── #}
+    <div class="bluf-kpi-row">
+        <div class="bluf-kpi">
+            <div class="bluf-kpi-val">{{ bluf.pct_complete }}%</div>
+            <div class="bluf-kpi-lbl">Complete</div>
         </div>
-        <div class="bluf-metric">
-            <div class="bluf-metric-value {{ 'good' if bluf.cpi >= 1.0 else ('caution' if bluf.cpi >= 0.9 else 'bad') }}">{{ bluf.cpi }}</div>
-            <div class="bluf-metric-label">CPI</div>
+        <div class="bluf-kpi">
+            <div class="bluf-kpi-val {{ 'good' if bluf.cpi >= 1.0 else ('caution' if bluf.cpi >= 0.9 else 'bad') }}">{{ bluf.cpi }}</div>
+            <div class="bluf-kpi-lbl">CPI</div>
         </div>
-        <div class="bluf-metric">
-            <div class="bluf-metric-value {{ 'good' if bluf.spi >= 1.0 else ('caution' if bluf.spi >= 0.9 else 'bad') }}">{{ bluf.spi }}</div>
-            <div class="bluf-metric-label">SPI</div>
+        <div class="bluf-kpi">
+            <div class="bluf-kpi-val {{ 'good' if bluf.spi >= 1.0 else ('caution' if bluf.spi >= 0.9 else 'bad') }}">{{ bluf.spi }}</div>
+            <div class="bluf-kpi-lbl">SPI</div>
         </div>
-        <div class="bluf-metric">
-            <div class="bluf-metric-value {{ 'bad' if bluf.overrun_amt > 0 else 'good' }}">${{ "{:,.0f}".format(bluf.eac) }}</div>
-            <div class="bluf-metric-label">EAC{% if bluf.overrun_amt > 0 %} (+${{ "{:,.0f}".format(bluf.overrun_amt) }}){% endif %}</div>
+        <div class="bluf-kpi">
+            <div class="bluf-kpi-val {{ 'bad' if bluf.overrun_amt > 0 else 'good' }}">${{ "{:,.0f}".format(bluf.eac) }}</div>
+            <div class="bluf-kpi-lbl">EAC{% if bluf.overrun_amt > 0 %} / +${{ "{:,.0f}".format(bluf.overrun_amt) }}{% endif %}</div>
         </div>
-        <div class="bluf-metric">
-            <div class="bluf-metric-value {{ 'bad' if bluf.days_slip > 7 else ('caution' if bluf.days_slip > 0 else 'good') }}">
+        <div class="bluf-kpi">
+            <div class="bluf-kpi-val {{ 'bad' if bluf.days_slip > 7 else ('caution' if bluf.days_slip > 0 else 'good') }}">
                 {% if bluf.days_slip > 0 %}+{{ bluf.days_slip }}d{% elif bluf.days_slip < 0 %}{{ bluf.days_slip }}d{% else %}On Time{% endif %}
             </div>
-            <div class="bluf-metric-label">Schedule Slip</div>
+            <div class="bluf-kpi-lbl">Schedule</div>
         </div>
     </div>
 
-    {# ── Cost & Budget ── #}
+    {# ── PROBLEM ── #}
     <div class="bluf-section">
-        <div class="bluf-section-title">Cost &amp; Budget Performance</div>
-        <div class="bluf-two-col">
-            <div>
-                <p class="bluf-narrative">{{ bluf.budget_narrative }}</p>
-                {% if bluf.contract_value %}
-                <p class="bluf-narrative" style="margin-top:10px;">
-                    Contract value is ${{ "{:,.0f}".format(bluf.contract_value) }}.
-                    {% if bluf.margin_remaining is not none %}
-                        {% if bluf.margin_remaining >= 0 %}
-                        Remaining margin: <strong style="color:var(--success)">${{ "{:,.0f}".format(bluf.margin_remaining) }}</strong>.
-                        {% else %}
-                        Margin fully consumed — project is <strong style="color:var(--danger)">${{ "{:,.0f}".format(bluf.margin_remaining|abs) }} in loss position</strong>.
-                        {% endif %}
-                    {% endif %}
-                </p>
-                {% endif %}
-                <p class="bluf-narrative" style="margin-top:10px;">
-                    CPI trend:
-                    {% if bluf.cpi_trend == 'improving' %}
-                    <strong style="color:var(--success)">Improving</strong> — efficiency is recovering over recent periods.
-                    {% elif bluf.cpi_trend == 'degrading' %}
-                    <strong style="color:var(--danger)">Degrading</strong> — efficiency is slipping over recent periods.
-                    {% else %}
-                    <strong style="color:var(--text-secondary)">Stable</strong> — no significant change in recent periods.
-                    {% endif %}
-                </p>
-            </div>
-            <div class="bluf-chart-mini">
-                <div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase;">CPI &amp; SPI Trend</div>
-                <canvas id="blufCpiChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    {# ── Schedule ── #}
-    <div class="bluf-section">
-        <div class="bluf-section-title">Schedule Performance</div>
-        <div class="bluf-two-col">
-            <div>
-                <p class="bluf-narrative">{{ bluf.schedule_narrative }}</p>
-                <p class="bluf-narrative" style="margin-top:10px;">
-                    Average team velocity is <strong>{{ bluf.avg_velocity }} pts/interval</strong>.
-                    {% if bluf.days_slip > 7 %}
-                    At this pace, the projected completion date is <strong style="color:var(--danger)">{{ bluf.projected_end_str }}</strong>
-                    versus the planned <strong>{{ bluf.planned_end_str }}</strong>.
-                    {% elif bluf.days_slip < -7 %}
-                    Projected completion: <strong style="color:var(--success)">{{ bluf.projected_end_str }}</strong>
-                    (planned: <strong>{{ bluf.planned_end_str }}</strong>).
-                    {% else %}
-                    Projected completion: <strong>{{ bluf.planned_end_str }}</strong>.
-                    {% endif %}
-                </p>
-            </div>
-            <div class="bluf-chart-mini">
-                <div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:8px;letter-spacing:0.05em;text-transform:uppercase;">Release Burndown</div>
-                <canvas id="blufBurndownChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    {# ── Scope Integrity ── #}
-    <div class="bluf-section">
-        <div class="bluf-section-title">Scope Integrity</div>
-        <p class="bluf-narrative">{{ bluf.scope_narrative }}</p>
-        {% if bluf.scope_creep_events %}
-        <div class="bluf-scope-events">
-            {% for e in bluf.scope_creep_events %}
-            <span class="bluf-scope-pill">
-                {{ '/'.join(e.date.split('-')[1:]) }} &nbsp;+{{ e.added }} pts &nbsp;(+{{ e.pct }}%)
-            </span>
-            {% endfor %}
-        </div>
+        <div class="bluf-section-title">Problem</div>
+        {% set has_problem = bluf.overrun_amt > 0 or bluf.days_slip > 7 or bluf.scope_creep_events %}
+        {% if not has_problem %}
+        <p class="bluf-muted">No active issues — project is executing within plan.</p>
+        {% else %}
+        <ul class="bluf-bullets problem">
+            {% if bluf.overrun_amt > 0 %}
+            <li>Cost overrun: EAC ${{ "{:,.0f}".format(bluf.eac) }} is ${{ "{:,.0f}".format(bluf.overrun_amt) }} ({{ bluf.overrun_pct }}%) above the ${{ "{:,.0f}".format(bluf.bac) }} budget{% if bluf.cpi_trend == 'degrading' %}, and the trend is worsening{% endif %}.</li>
+            {% endif %}
+            {% if bluf.days_slip > 7 %}
+            <li>Schedule slip: tracking ~{{ bluf.days_slip }} days late — projected {{ bluf.projected_end_str }} vs. planned {{ bluf.planned_end_str }}.</li>
+            {% endif %}
+            {% if bluf.scope_creep_events %}
+            <li>Scope grew {{ bluf.scope_growth_pct }}% above baseline ({{ bluf.initial_scope|int }} → {{ bluf.current_scope|int }} pts) without a corresponding budget increase.</li>
+            {% endif %}
+        </ul>
         {% endif %}
     </div>
 
-    {# ── Risks & Actions ── #}
+    {# ── OPPORTUNITY ── #}
     <div class="bluf-section">
-        <div class="bluf-section-title">Risks &amp; Recommended Actions</div>
-        <div class="bluf-ra-grid">
-            <div>
-                <div style="font-size:0.75rem;font-weight:600;color:var(--text-secondary);margin-bottom:10px;">Risk Flags</div>
-                {% if bluf.risks %}
-                <ul class="bluf-list risks">
-                    {% for r in bluf.risks %}
-                    <li><span class="li-dot">▸</span><span>{{ r }}</span></li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p style="font-size:0.85rem;color:var(--text-secondary);">No active risk flags. Project is within acceptable thresholds.</p>
-                {% endif %}
-            </div>
-            <div>
-                <div style="font-size:0.75rem;font-weight:600;color:var(--text-secondary);margin-bottom:10px;">Recommended Actions</div>
-                <ul class="bluf-list actions">
-                    {% for a in bluf.actions %}
-                    <li><span class="li-num">{{ loop.index }}.</span><span>{{ a }}</span></li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
+        <div class="bluf-section-title">Opportunity</div>
+        <ul class="bluf-bullets opportunity">
+            {% for a in bluf.actions %}
+            <li>{{ a }}</li>
+            {% endfor %}
+        </ul>
     </div>
 
-    {% endif %}{# end bluf data check #}
+    {# ── RISK ── #}
+    <div class="bluf-section">
+        <div class="bluf-section-title">Risk</div>
+        {% if bluf.risks %}
+        <ul class="bluf-bullets risk">
+            {% for r in bluf.risks %}
+            <li>{{ r }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="bluf-muted">No active risk flags — project is within acceptable thresholds.</p>
+        {% endif %}
+    </div>
 
-</div>{# end bluf-wrap #}
+    {% endif %}
 
-<script>
-(function () {
-    const projectId = "{{ project.id }}";
-    const gridColor = 'rgba(255,255,255,0.06)';
-
-    function fmtDate(iso) {
-        const [, m, d] = iso.split('-');
-        return `${parseInt(m)}/${parseInt(d)}`;
-    }
-
-    fetch(`/api/project/${projectId}`)
-        .then(r => r.json())
-        .then(data => {
-            const periods = (data.periods || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
-            if (!periods.length) return;
-
-            const bac    = data.bac;
-            const labels = periods.map(p => fmtDate(p.date));
-
-            // Cumulative metrics per period
-            let cumAC = 0, cumPts = 0;
-            const cpiData = [], spiData = [], targetLine = [];
-            const evData = [], acData = [], pvData = [];
-
-            const startDt = new Date(data.start_date + 'T00:00:00Z');
-            const endDt   = new Date(data.end_date   + 'T00:00:00Z');
-            const totalMs = endDt - startDt;
-
-            let runningScope = data.baseline_scope || 0;
-            periods.forEach(p => {
-                runningScope += (p.scope_delta || 0);
-                cumAC  += p.actual_cost;
-                cumPts += p.points_completed;
-                const scope = runningScope || 1;
-                const pct   = cumPts / scope;
-                const ev    = pct * bac;
-                const cpi   = cumAC > 0 ? ev / cumAC : 0;
-
-                const periodDt = new Date(p.date + 'T00:00:00Z');
-                const elapsed  = periodDt - startDt;
-                const pvPct    = totalMs > 0 ? Math.min(elapsed / totalMs, 1) : 0;
-                const pv       = pvPct * bac;
-                const spi      = pv > 0 ? ev / pv : 0;
-
-                evData.push(Math.round(ev));
-                acData.push(Math.round(cumAC));
-                pvData.push(Math.round(pv));
-                cpiData.push(parseFloat(cpi.toFixed(2)));
-                spiData.push(parseFloat(spi.toFixed(2)));
-                targetLine.push(1.0);
-            });
-
-            // ── CPI/SPI mini chart ──
-            function segColor(y0, y1) {
-                if (y0 >= 1 && y1 >= 1) return '#3fb950';
-                if (y0 < 1  && y1 < 1)  return '#f85149';
-                return '#d29922';
-            }
-
-            new Chart(document.getElementById('blufCpiChart'), {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [
-                        { label: 'Target', data: targetLine,
-                          borderColor: 'rgba(255,255,255,0.15)', borderDash: [4,3],
-                          borderWidth: 1, pointRadius: 0, tension: 0, fill: false },
-                        { label: 'CPI', data: cpiData,
-                          borderColor: '#3fb950', tension: 0.2, pointRadius: 3,
-                          segment: { borderColor: ctx => segColor(ctx.p0.parsed.y, ctx.p1.parsed.y) }
-                        },
-                        { label: 'SPI', data: spiData,
-                          borderColor: '#58a6ff', borderDash: [5,4], tension: 0.2, pointRadius: 3,
-                          segment: {
-                              borderColor: ctx => segColor(ctx.p0.parsed.y, ctx.p1.parsed.y),
-                              borderDash: () => [5, 4]
-                          }
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    aspectRatio: 1.67,
-                    plugins: { legend: { display: false },
-                               tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}` } } },
-                    scales: {
-                        x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: gridColor } },
-                        y: { min: 0, ticks: { color: '#8b949e', font: { size: 10 }, callback: v => v.toFixed(1) }, grid: { color: gridColor } }
-                    }
-                }
-            });
-
-            // ── Burndown mini chart ──
-            const intervalUnit = data.interval_unit || 'weeks';
-            const intervalSize = parseInt(data.interval_size) || 2;
-            const endDate      = new Date(data.end_date + 'T00:00:00Z');
-
-            function nextInterval(base) {
-                const d = new Date(base);
-                if (intervalUnit === 'months') d.setUTCMonth(d.getUTCMonth() + intervalSize);
-                else if (intervalUnit === 'weeks') d.setUTCDate(d.getUTCDate() + intervalSize * 7);
-                else d.setUTCDate(d.getUTCDate() + intervalSize);
-                return d;
-            }
-
-            let cumPtsBd = 0;
-            let bdRunningScope = data.baseline_scope || 0;
-            const remaining = [], velocityData = [], bdBaseLabels = [];
-            periods.forEach(p => {
-                bdRunningScope += (p.scope_delta || 0);
-                cumPtsBd += p.points_completed;
-                remaining.push(bdRunningScope - cumPtsBd);
-                velocityData.push(p.points_completed);
-                bdBaseLabels.push(fmtDate(p.date));
-            });
-
-            const avgVel    = cumPtsBd / periods.length;
-            const lastScope = remaining[remaining.length - 1];
-            const lastDate  = new Date(periods[periods.length - 1].date + 'T00:00:00Z');
-
-            const bdLabels    = [fmtDate(data.start_date), ...bdBaseLabels];
-            const bdRemaining = [null, ...remaining];
-            const bdForecast  = new Array(bdLabels.length).fill(null);
-            const bdVelocity  = [null, ...velocityData];
-
-            bdForecast[bdForecast.length - 1] = lastScope;
-
-            const endLblBd = fmtDate(data.end_date);
-            let fScope = lastScope;
-            let cursor = nextInterval(lastDate);
-            let prevCursor = new Date(lastDate);
-            let popEndInserted = false;
-            const MAX_FORECAST = 60;
-            let fCount = 0;
-
-            while (fScope > 0 && fCount < MAX_FORECAST) {
-                if (!popEndInserted && cursor > endDate) {
-                    const span    = cursor - prevCursor;
-                    const elapsed = endDate - prevCursor;
-                    const frac    = span > 0 ? elapsed / span : 0;
-                    const scopeAtEnd = Math.max(0,
-                        parseFloat((fScope + avgVel * (1 - frac)).toFixed(1)));
-                    bdLabels.push(endLblBd);
-                    bdRemaining.push(null);
-                    bdForecast.push(scopeAtEnd);
-                    bdVelocity.push(null);
-                    popEndInserted = true;
-                }
-                fScope = Math.max(0, parseFloat((fScope - avgVel).toFixed(1)));
-                bdLabels.push(fmtDate(cursor.toISOString().split('T')[0]));
-                bdRemaining.push(null);
-                bdForecast.push(fScope);
-                bdVelocity.push(null);
-                prevCursor = new Date(cursor);
-                cursor = nextInterval(cursor);
-                fCount++;
-            }
-
-            if (!popEndInserted) {
-                if (bdLabels[bdLabels.length - 1] !== endLblBd) {
-                    bdLabels.push(endLblBd);
-                    bdRemaining.push(null);
-                    bdForecast.push(fScope > 0 ? fScope : null);
-                    bdVelocity.push(null);
-                }
-            }
-
-            const blufPopPlugin = {
-                id: 'blufPopLine',
-                afterDraw(chart) {
-                    const opts = (chart.options.plugins || {}).popLine;
-                    if (!opts || !opts.label) return;
-                    const idx = chart.data.labels.indexOf(opts.label);
-                    if (idx < 0) return;
-                    const { ctx, chartArea, scales } = chart;
-                    const x = scales.x.getPixelForValue(idx);
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(x, chartArea.top);
-                    ctx.lineTo(x, chartArea.bottom);
-                    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-                    ctx.lineWidth = 1.5;
-                    ctx.setLineDash([5, 4]);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                    ctx.font = '10px Inter, sans-serif';
-                    ctx.textAlign = 'right';
-                    ctx.fillText('PoP End', x - 5, chartArea.top + 12);
-                    ctx.restore();
-                }
-            };
-
-            new Chart(document.getElementById('blufBurndownChart'), {
-                plugins: [blufPopPlugin],
-                data: {
-                    labels: bdLabels,
-                    datasets: [
-                        { type: 'bar',  label: 'Velocity (pts)',
-                          data: bdVelocity,
-                          backgroundColor: 'rgba(88,166,255,0.3)', borderColor: '#58a6ff',
-                          borderWidth: 1, yAxisID: 'yVel' },
-                        { type: 'line', label: 'Remaining Scope (pts)',
-                          data: bdRemaining,
-                          borderColor: '#f0883e', backgroundColor: 'rgba(240,136,62,0.07)',
-                          fill: true, tension: 0, pointRadius: 3, yAxisID: 'yScope' },
-                        { type: 'line', label: 'Forecast',
-                          data: bdForecast,
-                          borderColor: '#f0883e', borderDash: [5, 5],
-                          borderWidth: 2, pointRadius: 2, tension: 0,
-                          fill: false, yAxisID: 'yScope' }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    aspectRatio: 1.67,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { display: false },
-                        popLine: { label: endLblBd }
-                    },
-                    scales: {
-                        x:      { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: gridColor } },
-                        yScope: { type: 'linear', position: 'left',
-                                  ticks: { color: '#f0883e', font: { size: 10 } }, grid: { color: gridColor } },
-                        yVel:   { type: 'linear', position: 'right',
-                                  ticks: { color: '#58a6ff', font: { size: 10 } }, grid: { drawOnChartArea: false } }
-                    }
-                }
-            });
-        });
-})();
-</script>
-
+</div>
 {% endblock %}
-

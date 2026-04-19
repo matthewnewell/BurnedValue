@@ -62,17 +62,32 @@ def two_periods():
 # ── Flask app fixtures (for integration tests) ────────────────────────────────
 
 @pytest.fixture
-def app():
-    """Flask test application with temporary data directory."""
-    import tempfile
+def app(tmp_path, monkeypatch):
+    """Flask test application with fully isolated data directory.
+
+    Patches utils.DATA_FILE and utils._DATA_DIR so JSON storage writes
+    to a per-test temp directory, not the real data/ folder.
+    SQLite is redirected to the same temp dir via SQLALCHEMY_DATABASE_URI.
+    """
+    import utils
     import app as flask_app
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        flask_app.app.config.update({
-            'TESTING': True,
-            'DATA_DIR': tmpdir,
-        })
-        yield flask_app.app
+    data_file = str(tmp_path / 'projects.json')
+    db_file   = str(tmp_path / 'burnedvalue.db')
+
+    monkeypatch.setattr(utils, 'DATA_FILE', data_file)
+    monkeypatch.setattr(utils, '_DATA_DIR', str(tmp_path))
+
+    flask_app.app.config.update({
+        'TESTING': True,
+        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_file}',
+    })
+
+    from db import db
+    with flask_app.app.app_context():
+        db.create_all()
+
+    yield flask_app.app
 
 
 @pytest.fixture

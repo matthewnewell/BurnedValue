@@ -9,33 +9,52 @@ import pytest
 
 class TestProjectRoutes:
 
-    @pytest.mark.skip(reason="Integration test setup not yet configured")
     def test_index_returns_200(self, client):
         response = client.get('/')
         assert response.status_code == 200
 
-    @pytest.mark.skip(reason="Integration test setup not yet configured")
     def test_create_project_get(self, client):
         response = client.get('/create')
         assert response.status_code == 200
 
-    @pytest.mark.skip(reason="Integration test setup not yet configured")
-    def test_create_project_post(self, client):
+    def test_create_project_post_redirects_to_dashboard(self, client):
         response = client.post('/create', data={
             'name': 'Test Project',
             'bac': '100000',
             'start_date': '2026-01-01',
             'end_date': '2026-06-30',
+            'interval_unit': 'weeks',
+            'interval_size': '2',
         })
-        assert response.status_code in (200, 302)
+        assert response.status_code == 302
+        assert '/dashboard/' in response.headers['Location']
 
-    @pytest.mark.skip(reason="Integration test setup not yet configured")
     def test_dashboard_returns_200(self, client):
-        pass
+        # Create a project first, then follow the redirect to its dashboard
+        create = client.post('/create', data={
+            'name': 'Dashboard Test',
+            'bac': '50000',
+            'start_date': '2026-01-01',
+            'end_date': '2026-06-30',
+            'interval_unit': 'weeks',
+            'interval_size': '2',
+        })
+        dashboard_url = create.headers['Location']
+        response = client.get(dashboard_url)
+        assert response.status_code == 200
 
-    @pytest.mark.skip(reason="Integration test setup not yet configured")
     def test_bluf_returns_200(self, client):
-        pass
+        create = client.post('/create', data={
+            'name': 'BLUF Test',
+            'bac': '50000',
+            'start_date': '2026-01-01',
+            'end_date': '2026-06-30',
+            'interval_unit': 'weeks',
+            'interval_size': '2',
+        })
+        project_id = create.headers['Location'].split('/dashboard/')[1]
+        response = client.get(f'/project/{project_id}/bluf')
+        assert response.status_code == 200
 
 
 class TestProjectApiEndpoint:

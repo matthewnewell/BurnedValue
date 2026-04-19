@@ -42,20 +42,30 @@ def chat(messages: list[dict], system: str = "") -> str:
 
 # ── Claude ────────────────────────────────────────────────────────────────────
 
+_anthropic_client = None
+
+def _get_anthropic_client():
+    global _anthropic_client
+    if _anthropic_client is None:
+        try:
+            import anthropic
+        except ImportError:
+            return None
+        _anthropic_client = anthropic.Anthropic(api_key=AI_API_KEY)
+    return _anthropic_client
+
+
 def _claude(messages: list[dict], system: str) -> str:
-    try:
-        import anthropic
-    except ImportError:
+    client = _get_anthropic_client()
+    if client is None:
         return "anthropic package not installed. Run: pip install anthropic"
 
     model = AI_MODEL or "claude-opus-4-5"
-    client = anthropic.Anthropic(api_key=AI_API_KEY)
-
     kwargs = dict(model=model, max_tokens=1024, messages=messages)
     if system:
         kwargs["system"] = system
 
-    response = client.messages.create(**kwargs)
+    response = client.messages.create(**kwargs, timeout=60)
     return response.content[0].text
 
 

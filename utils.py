@@ -1,7 +1,9 @@
 import json
 import os
+import tempfile
 import uuid
 from datetime import datetime, timedelta
+from filelock import FileLock
 
 _DATA_DIR = os.environ.get('DATA_DIR', 'data')
 DATA_FILE = os.path.join(_DATA_DIR, 'projects.json')
@@ -111,28 +113,43 @@ def _build_sample_project():
 
 def ensure_sample_project():
     projects = load_projects()
-    projects['sample-1'] = _build_sample_project()
-    save_projects(projects)
+    current_version = projects.get('sample-1', {}).get('_seed_version')
+    if current_version != _build_sample_project()['_seed_version']:
+        projects['sample-1'] = _build_sample_project()
+        save_projects(projects)
 
 
 def get_canonical_sample():
     return _build_sample_project()
 
 
+def _lock_path():
+    return DATA_FILE + '.lock'
+
+
 def load_projects():
     if not os.path.exists(DATA_FILE):
         return {}
-    with open(DATA_FILE, 'r') as f:
+    with FileLock(_lock_path()):
         try:
-            return json.load(f)
-        except json.JSONDecodeError:
+            with open(DATA_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
             return {}
 
 
 def save_projects(projects):
-    os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-    with open(DATA_FILE, 'w') as f:
-        json.dump(projects, f, indent=4)
+    data_dir = os.path.dirname(DATA_FILE)
+    os.makedirs(data_dir, exist_ok=True)
+    with FileLock(_lock_path()):
+        fd, tmp_path = tempfile.mkstemp(dir=data_dir, suffix='.tmp')
+        try:
+            with os.fdopen(fd, 'w') as f:
+                json.dump(projects, f, indent=4)
+            os.replace(tmp_path, DATA_FILE)
+        except Exception:
+            os.unlink(tmp_path)
+            raise
 
 
 def get_project(project_id):
@@ -161,8 +178,10 @@ def delete_project(project_id):
 
 def ensure_demo_project():
     projects = load_projects()
-    projects['demo'] = _build_demo_project()
-    save_projects(projects)
+    current_version = projects.get('demo', {}).get('_seed_version')
+    if current_version != _build_demo_project()['_seed_version']:
+        projects['demo'] = _build_demo_project()
+        save_projects(projects)
 
 
 def get_canonical_demo():
@@ -208,14 +227,6 @@ def generate_intervals(project):
     return intervals
 
 
-def recompute_scope(project):
-    """
-    Formerly rewrote total_estimated_effort on every period.
-    Scope is now computed dynamically from baseline_scope + cumulative scope_delta,
-    so this function is a no-op and will be removed in a future cleanup.
-    """
-    pass
-
 
 def _backfill_period_ids(project):
     changed = False
@@ -238,15 +249,22 @@ def _backfill_scope_deltas(project):
         return changed
 
     if 'baseline_scope' not in project:
-        project['baseline_scope'] = float(periods[0]['total_estimated_effort'])
+        try:
+            project['baseline_scope'] = float(periods[0]['total_estimated_effort'])
+        except KeyError:
+            return changed
         changed = True
 
     prev = project['baseline_scope']
     for p in periods:
         if 'scope_delta' not in p:
-            p['scope_delta'] = float(p['total_estimated_effort']) - prev
+            try:
+                p['scope_delta'] = float(p['total_estimated_effort']) - prev
+                prev = float(p['total_estimated_effort'])
+            except KeyError:
+                p['scope_delta'] = 0.0
+                prev += 0.0
             changed = True
-            prev = float(p['total_estimated_effort'])
         else:
             prev += float(p['scope_delta'])
 

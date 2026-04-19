@@ -27,8 +27,19 @@ class CalculationEngine:
 
         baseline = project.get('baseline_scope', 0.0) or 0.0
         current_total_scope = baseline + sum(p.get('scope_delta', 0.0) for p in sorted_periods)
-        if current_total_scope == 0:
-            current_total_scope = 1
+        if current_total_scope <= 0:
+            return {
+                "ev": 0, "ac": total_ac, "pv": 0,
+                "cpi": 0, "spi": 0, "eac": 0,
+                "bac": project['bac'],
+                "scope_coverage_ratio": 0.0,
+                "budget_per_point": 0,
+                "actual_cost_per_point": 0,
+                "avg_velocity": round(total_points_completed / len(sorted_periods), 1),
+                "percent_complete": 0,
+                "completed_points": total_points_completed,
+                "total_scope": 0
+            }
 
         # Scope Coverage Ratio: percentage of current scope covered by original budget
         baseline_scope = project.get('baseline_scope') or current_total_scope
@@ -104,7 +115,10 @@ class CalculationEngine:
             running_scope += p.get('scope_delta', 0.0)
             cum_ac += p['actual_cost']
             cum_points += p['points_completed']
-            scope = running_scope if running_scope > 0 else 1
+            scope = running_scope if running_scope > 0 else None
+            if scope is None:
+                details.append({'period': p, 'scope_warning': True})
+                continue
 
             percent = cum_points / scope
             ev = percent * project['bac']
@@ -250,108 +264,57 @@ class CalculationEngine:
             'projected_end_str': projected_end_str,
             'planned_end_str':   planned_end_str,
         }
-
     @staticmethod
-    def generate_narrative(project, periods, metrics):
+    def _scope_creep_events(project, sorted_periods):
         """
-        Produces a plain-English interpretation of project health.
-        Kept for internal use by generate_bluf(); the dashboard now uses generate_glimpse().
+        Returns list of scope creep events (periods where scope_delta > 0).
+        Each entry: {date, added (int pts), pct (% of scope at that point)}.
         """
-        if not periods or metrics['cpi'] == 0:
-            return None
-
-        sorted_periods = sorted(periods, key=lambda x: x['date'])
-
-        # Detect scope creep events
-        scope_creep_events = []
-        initial_scope = project.get('baseline_scope', 0.0) or 0.0
-        running_scope = initial_scope
+        events = []
+        running_scope = project.get('baseline_scope', 0.0) or 0.0
         for p in sorted_periods:
             delta = p.get('scope_delta', 0.0)
             if delta > 0:
-                pct = round(delta / running_scope * 100, 1) if running_scope > 0 else 0
-                scope_creep_events.append({
-                    'date': p['date'],
+                events.append({
+                    'date':  p['date'],
                     'added': int(delta),
-                    'pct': pct
+                    'pct':   round(delta / running_scope * 100, 1) if running_scope > 0 else 0,
                 })
             running_scope += delta
+        return events
 
-        cpi = metrics['cpi']
-        spi = metrics['spi']
-        eac = metrics['eac']
+    @staticmethod
+    def _cpi_trend(project, sorted_periods):
+        """
+        Returns 'improving', 'degrading', or 'stable' based on the last 3 cumulative CPIs.
+        Uses cumulative (not period) CPI to match the BLUF chart.
+        """
         bac = project['bac']
-        overrun = round(eac - bac, 2)
-        initial_vd = round(bac / initial_scope, 2)
-        current_vd = metrics['budget_per_point']
-        vd_dilution_pct = round((initial_vd - current_vd) / initial_vd * 100, 1) if initial_vd > 0 else 0
+        baseline = project.get('baseline_scope', 0.0) or 0.0
+        running_scope = baseline
+        cum_ac = 0.0
+        cum_pts = 0.0
+        cpis = []
+        for p in sorted_periods:
+            running_scope += p.get('scope_delta', 0.0)
+            cum_ac  += p['actual_cost']
+            cum_pts += p['points_completed']
+            sc = running_scope or 1
+            ev = (cum_pts / sc) * bac
+            cpis.append(round(ev / cum_ac, 2) if cum_ac else 0)
 
-        # Schedule slip projection — same math as the burndown chart
-        try:
-            end_dt = datetime.strptime(project['end_date'], '%Y-%m-%d')
-            planned_end_str = end_dt.strftime('%m/%d/%Y')
-        except (ValueError, KeyError):
-            end_dt = None
-            planned_end_str = None
-
-        projected_end, days_slip = CalculationEngine._project_finish(
-            project, sorted_periods, metrics['avg_velocity']
-        )
-        projected_end_str = projected_end.strftime('%m/%d/%Y') if projected_end else None
-
-        # Overall status: escalate to danger if schedule is also badly off
-        if cpi >= 1.05:
-            status = 'success'
-        elif cpi >= 0.95:
-            status = 'warning'
-        else:
-            status = 'danger'
-        if spi < 0.85 and status != 'danger':
-            status = 'warning'
-
-        # Build the headline
-        if status == 'success':
-            headline = f"Project is running under budget (CPI: {cpi}). Efficient delivery."
-        elif status == 'warning':
-            headline = f"Minor cost variance detected (CPI: {cpi}). Monitor closely."
-        else:
-            headline = f"Project is over budget (CPI: {cpi}). Corrective action needed."
-
-        # Build supporting lines
-        lines = []
-        if scope_creep_events:
-            event_strs = [f"{'/'.join(e['date'].split('-')[1:])} (+{e['added']} pts, +{e['pct']}%)" for e in scope_creep_events]
-            lines.append(f"{len(scope_creep_events)} scope creep event(s): {', '.join(event_strs)}.")
-        if vd_dilution_pct > 0:
-            lines.append(
-                f"Scope Coverage Ratio has dropped — budget per point eroded from ${initial_vd:,.0f}/pt "
-                f"\u2192 ${current_vd:,.0f}/pt ({vd_dilution_pct}% loss in point value)."
-            )
-        if overrun > 0:
-            lines.append(f"At current CPI, EAC is ${eac:,.0f} \u2014 ${overrun:,.0f} over the ${bac:,.0f} budget.")
-        elif overrun < 0:
-            lines.append(f"At current CPI, EAC is ${eac:,.0f} \u2014 ${abs(overrun):,.0f} under budget.")
-
-        if spi < 0.95 and days_slip > 0 and projected_end_str:
-            lines.append(
-                f"Schedule is behind plan (SPI: {spi}) \u2014 at current velocity, "
-                f"projected finish is {projected_end_str}, {days_slip} days past the planned {planned_end_str}."
-            )
-        elif spi < 0.95:
-            lines.append(f"Schedule is behind plan (SPI: {spi}).")
-        elif spi > 1.05 and days_slip < 0 and projected_end_str:
-            lines.append(
-                f"Ahead of schedule (SPI: {spi}) \u2014 projected finish {projected_end_str}, "
-                f"{abs(days_slip)} days early."
-            )
-
-        return {
-            'status': status,
-            'headline': headline,
-            'lines': lines,
-            'scope_creep_count': len(scope_creep_events)
-        }
-
+        if len(cpis) >= 3:
+            if cpis[-1] > cpis[-3] + 0.02:
+                return 'improving'
+            if cpis[-1] < cpis[-3] - 0.02:
+                return 'degrading'
+        elif len(cpis) == 2:
+            diff = cpis[-1] - cpis[-2]
+            if diff > 0.02:
+                return 'improving'
+            if diff < -0.02:
+                return 'degrading'
+        return 'stable'
 
     @staticmethod
     def generate_bluf(project, periods, metrics):
@@ -370,25 +333,14 @@ class CalculationEngine:
         cv    = project.get('contract_value')
 
         # ── Scope creep ──────────────────────────────────────────────────
-        scope_creep_events = []
-        initial_scope = project.get('baseline_scope', 0.0) or 0.0
-        running_scope = initial_scope
-        for p in sorted_periods:
-            delta = p.get('scope_delta', 0.0)
-            if delta > 0:
-                scope_creep_events.append({
-                    'date': p['date'],
-                    'added': int(delta),
-                    'pct': round(delta / running_scope * 100, 1) if running_scope > 0 else 0
-                })
-            running_scope += delta
-
-        total_scope_added = sum(e['added'] for e in scope_creep_events)
-        current_scope     = metrics['total_scope']
-        scope_growth_pct  = round(total_scope_added / initial_scope * 100, 1) if initial_scope else 0
-        initial_vd        = round(bac / initial_scope, 2) if initial_scope else 0
-        current_vd        = metrics['budget_per_point']
-        vd_dilution_pct   = round((initial_vd - current_vd) / initial_vd * 100, 1) if initial_vd else 0
+        scope_creep_events = CalculationEngine._scope_creep_events(project, sorted_periods)
+        initial_scope      = project.get('baseline_scope', 0.0) or 0.0
+        total_scope_added  = sum(e['added'] for e in scope_creep_events)
+        current_scope      = metrics['total_scope']
+        scope_growth_pct   = round(total_scope_added / initial_scope * 100, 1) if initial_scope else 0
+        initial_vd         = round(bac / initial_scope, 2) if initial_scope else 0
+        current_vd         = metrics['budget_per_point']
+        vd_dilution_pct    = round((initial_vd - current_vd) / initial_vd * 100, 1) if initial_vd else 0
 
         # ── Budget ───────────────────────────────────────────────────────
         overrun_amt = round(eac - bac, 0)
@@ -408,33 +360,8 @@ class CalculationEngine:
         )
         projected_end_str = projected_end.strftime('%m/%d/%Y') if projected_end else None
 
-        # ── CPI trend (cumulative, last 3 periods) ───────────────────────
-        cum_ac_t = 0.0
-        cum_pt_t = 0.0
-        cpis_over_time = []
-        bluf_baseline = project.get('baseline_scope', 0.0) or 0.0
-        bluf_running_scope = bluf_baseline
-        for p in sorted_periods:
-            bluf_running_scope += p.get('scope_delta', 0.0)
-            cum_ac_t += p['actual_cost']
-            cum_pt_t += p['points_completed']
-            sc = bluf_running_scope or 1
-            ev_t = (cum_pt_t / sc) * bac
-            cpis_over_time.append(round(ev_t / cum_ac_t, 2) if cum_ac_t else 0)
-
-        if len(cpis_over_time) >= 3:
-            t = cpis_over_time
-            if t[-1] > t[-3] + 0.02:
-                cpi_trend = 'improving'
-            elif t[-1] < t[-3] - 0.02:
-                cpi_trend = 'degrading'
-            else:
-                cpi_trend = 'stable'
-        elif len(cpis_over_time) == 2:
-            diff = cpis_over_time[-1] - cpis_over_time[-2]
-            cpi_trend = 'improving' if diff > 0.02 else ('degrading' if diff < -0.02 else 'stable')
-        else:
-            cpi_trend = 'stable'
+        # ── CPI trend ────────────────────────────────────────────────────
+        cpi_trend = CalculationEngine._cpi_trend(project, sorted_periods)
 
         # ── Overall RAG ──────────────────────────────────────────────────
         if cpi >= 1.0 and spi >= 1.0:
@@ -627,15 +554,6 @@ class CalculationEngine:
             'risks':                risks,
             'actions':              actions,
         }
-
-
-class Project:
-    def __init__(self, name, description, bac, start_date, end_date):
-        self.name = name
-        self.description = description
-        self.bac = float(bac)
-        self.start_date = start_date
-        self.end_date = end_date
 
 
 class Period:

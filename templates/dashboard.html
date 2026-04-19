@@ -203,7 +203,7 @@
         </div>
     </div>
 
-    {% if metrics.eac > project.contract_value %}
+    {% if project.contract_value and metrics.eac > project.contract_value %}
         {% set eac_status = 'danger' %}
     {% elif metrics.eac > metrics.bac %}
         {% set eac_status = 'warning' %}
@@ -405,7 +405,7 @@
     }
 
     fetch(`/api/project/${projectId}`)
-        .then(r => r.json())
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(data => {
             const periods = data.periods.sort((a, b) => new Date(a.date) - new Date(b.date));
             if (!periods.length) return;
@@ -848,6 +848,15 @@
                     }
                 }
             });
+        })
+        .catch(err => {
+            console.error('Dashboard chart data failed to load:', err);
+            document.querySelectorAll('.chart-container canvas').forEach(c => {
+                const msg = document.createElement('p');
+                msg.style.cssText = 'color:var(--text-secondary);font-size:0.8rem;padding:16px;text-align:center;';
+                msg.textContent = 'Chart data unavailable.';
+                c.replaceWith(msg);
+            });
         });
 
         // ── Chart Modal ───────────────────────────────────────────────────
@@ -894,9 +903,16 @@
         modalOverlay.addEventListener('click', e => {
             if (e.target === modalOverlay) modalOverlay.classList.remove('active');
         });
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') modalOverlay.classList.remove('active');
-        });
+        // Guard against SPA double-registration on repeated visits to this page
+        if (!window._dashboardEscRegistered) {
+            window._dashboardEscRegistered = true;
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') {
+                    const overlay = document.getElementById('chartModalOverlay');
+                    if (overlay) overlay.classList.remove('active');
+                }
+            });
+        }
 </script>
 
 {% endblock %}

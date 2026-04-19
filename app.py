@@ -11,11 +11,17 @@ import utils
 import uuid
 import json
 from datetime import datetime
-from db import init_db, get_db_path
+from db import init_db, get_db_path, db, Epic, Discipline, Iteration
 
 app = Flask(__name__)
-# Set SECRET_KEY env var in production. The default is fine for local dev.
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
+_SECRET_KEY_DEFAULT = 'dev-secret-change-in-production'
+app.secret_key = os.environ.get('SECRET_KEY', _SECRET_KEY_DEFAULT)
+if app.secret_key == _SECRET_KEY_DEFAULT and not os.environ.get('FLASK_TESTING'):
+    import warnings
+    warnings.warn(
+        "SECRET_KEY is using the insecure default. Set the SECRET_KEY environment variable before deploying.",
+        stacklevel=1
+    )
 
 # ── SQLite / SQLAlchemy (Phase 1+ work structure entities) ─────────────────────
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{get_db_path()}'
@@ -58,6 +64,70 @@ def get_project_for_request(project_id):
 
 
 # Fields that visitors are allowed to override on the demo project
+def _parse_float(value, field_name, required=True, allow_negative=False):
+    """Parse a form float. Returns (float_value, error_string_or_None)."""
+    raw = str(value).strip() if value is not None else ''
+    if not raw:
+        if required:
+            return None, f"{field_name} is required."
+        return 0.0, None
+    try:
+        v = float(raw)
+    except ValueError:
+        return None, f"{field_name} must be a number."
+    if v != v or v in (float('inf'), float('-inf')):
+        return None, f"{field_name} must be a finite number."
+    if not allow_negative and v < 0:
+        return None, f"{field_name} cannot be negative."
+    return v, None
+
+
+def _validate_project_form(form):
+    """Validate project create/settings form fields. Returns list of error strings."""
+    errors = []
+    if not form.get('name', '').strip():
+        errors.append("Project name is required.")
+    _, e = _parse_float(form.get('bac'), 'Budget at Completion (BAC)')
+    if e:
+        errors.append(e)
+    if not form.get('start_date'):
+        errors.append("Start date is required.")
+    if not form.get('end_date'):
+        errors.append("End date is required.")
+    if form.get('start_date') and form.get('end_date') and form['start_date'] >= form['end_date']:
+        errors.append("End date must be after start date.")
+    cv_raw = form.get('contract_value', '').strip()
+    if cv_raw:
+        _, e = _parse_float(cv_raw, 'Contract value')
+        if e:
+            errors.append(e)
+    return errors
+
+
+def _validate_period_form(form, project):
+    """Validate period entry form fields. Returns list of error strings."""
+    errors = []
+    if not form.get('date'):
+        errors.append("Period date is required.")
+    else:
+        try:
+            period_date = form['date']
+            start = project.get('start_date', '')
+            end = project.get('end_date', '')
+            if start and period_date < start:
+                errors.append("Period date is before the project start date.")
+            if end and period_date > end:
+                errors.append("Period date is after the project end date.")
+        except (TypeError, ValueError):
+            errors.append("Period date is invalid.")
+    for field, label in [('points', 'Points completed'), ('labor_hours', 'Labor hours'),
+                         ('labor_rate', 'Labor rate'), ('non_labor', 'Non-labor cost')]:
+        _, e = _parse_float(form.get(field, '0'), label)
+        if e:
+            errors.append(e)
+    return errors
+
+
 _DEMO_MUTABLE_FIELDS = [
     'name', 'description', 'contract_value', 'bac',
     'start_date', 'end_date', 'interval_unit', 'interval_size',
@@ -109,46 +179,33 @@ def index():
 
 @app.route('/create', methods=['GET', 'POST'])
 def create_project():
+    errors = []
     if request.method == 'POST':
-        project_id = str(uuid.uuid4())
-        cv_raw = request.form.get('contract_value', '').strip()
-        data = {
-            "id": project_id,
-            "name": request.form['name'],
-            "description": request.form.get('description', ''),
-            "contract_value": float(cv_raw) if cv_raw else None,
-            "bac": float(request.form['bac']),
-            "start_date": request.form['start_date'],
-            "end_date": request.form['end_date'],
-            "interval_unit": request.form.get('interval_unit', 'weeks'),
-            "interval_size": int(request.form.get('interval_size', 2)),
-            "periods": []
-        }
-        utils.save_project_data(project_id, data)
-        return redirect(url_for('dashboard', project_id=project_id))
-    return render_template('create_project.html')
+        errors = _validate_project_form(request.form)
+        if not errors:
+            project_id = str(uuid.uuid4())
+            cv_raw = request.form.get('contract_value', '').strip()
+            data = {
+                "id": project_id,
+                "name": request.form['name'].strip(),
+                "description": request.form.get('description', '').strip(),
+                "contract_value": float(cv_raw) if cv_raw else None,
+                "bac": float(request.form['bac']),
+                "start_date": request.form['start_date'],
+                "end_date": request.form['end_date'],
+                "interval_unit": request.form.get('interval_unit', 'weeks'),
+                "interval_size": int(request.form.get('interval_size', 2)),
+                "periods": []
+            }
+            utils.save_project_data(project_id, data)
+            return redirect(url_for('dashboard', project_id=project_id))
+    return render_template('create_project.html', errors=errors)
 
 
 @app.route('/project/<project_id>/update', methods=['GET', 'POST'])
 def update_project(project_id):
-    project = get_project_for_request(project_id)
-    if not project:
-        abort(404)
-
-    if request.method == 'POST':
-        cv_raw = request.form.get('contract_value', '').strip()
-        project['name']           = request.form['name']
-        project['description']    = request.form.get('description', '')
-        project['contract_value'] = float(cv_raw) if cv_raw else None
-        project['bac']            = float(request.form['bac'])
-        project['start_date']     = request.form['start_date']
-        project['end_date']       = request.form['end_date']
-        # interval_unit and interval_size are intentionally not updated here —
-        # changing cadence after data exists would misalign period records
-        save_project_for_request(project_id, project)
-        return redirect(url_for('dashboard', project_id=project_id))
-
-    return render_template('update_project.html', project=project)
+    # Consolidated into project_settings. Redirect to preserve any existing links.
+    return redirect(url_for('project_settings', project_id=project_id), code=301)
 
 
 @app.route('/dashboard/<project_id>')
@@ -189,26 +246,29 @@ def add_period(project_id):
     if not project:
         abort(404)
 
+    errors = []
     if request.method == 'POST':
-        scope_delta = float(request.form.get('scope_delta', 0) or 0)
+        errors = _validate_period_form(request.form, project)
+        if not errors:
+            scope_delta = float(request.form.get('scope_delta', 0) or 0)
 
-        if not project['periods']:
-            # First period: the user enters the baseline directly
-            baseline = float(request.form.get('baseline_scope', 0) or 0)
-            project['baseline_scope'] = baseline
-            scope_delta = 0.0
+            if not project['periods']:
+                # First period: the user enters the baseline directly
+                baseline = float(request.form.get('baseline_scope', 0) or 0)
+                project['baseline_scope'] = baseline
+                scope_delta = 0.0
 
-        period = Period(
-            date=request.form['date'],
-            points_completed=float(request.form['points']),
-            labor_hours=float(request.form.get('labor_hours', 0)),
-            labor_rate=float(request.form.get('labor_rate', 0)),
-            non_labor_cost=float(request.form.get('non_labor', 0)),
-            scope_delta=scope_delta
-        )
-        project['periods'].append(period.to_dict())
-        save_project_for_request(project_id, project)
-        return redirect(url_for('dashboard', project_id=project_id))
+            period = Period(
+                date=request.form['date'],
+                points_completed=float(request.form['points']),
+                labor_hours=float(request.form.get('labor_hours', 0)),
+                labor_rate=float(request.form.get('labor_rate', 0)),
+                non_labor_cost=float(request.form.get('non_labor', 0)),
+                scope_delta=scope_delta
+            )
+            project['periods'].append(period.to_dict())
+            save_project_for_request(project_id, project)
+            return redirect(url_for('dashboard', project_id=project_id))
 
     # Compute context for the scope governance section
     baseline_scope = project.get('baseline_scope')
@@ -225,7 +285,8 @@ def add_period(project_id):
         has_periods=has_periods,
         prior_growth=prior_growth,
         current_total=current_total,
-        prefill_date=prefill_date
+        prefill_date=prefill_date,
+        errors=errors
     )
 
 
@@ -239,23 +300,26 @@ def edit_period(project_id, period_id):
     if not period_data:
         abort(404)
 
+    errors = []
     if request.method == 'POST':
-        scope_delta = float(request.form.get('scope_delta', 0) or 0)
+        errors = _validate_period_form(request.form, project)
+        if not errors:
+            scope_delta = float(request.form.get('scope_delta', 0) or 0)
 
-        updated = Period(
-            date=request.form['date'],
-            points_completed=float(request.form['points']),
-            labor_hours=float(request.form.get('labor_hours', 0)),
-            labor_rate=float(request.form.get('labor_rate', 0)),
-            non_labor_cost=float(request.form.get('non_labor', 0)),
-            scope_delta=scope_delta,
-            period_id=period_id
-        )
-        idx = next(i for i, p in enumerate(project['periods']) if p.get('period_id') == period_id)
-        project['periods'][idx] = updated.to_dict()
+            updated = Period(
+                date=request.form['date'],
+                points_completed=float(request.form['points']),
+                labor_hours=float(request.form.get('labor_hours', 0)),
+                labor_rate=float(request.form.get('labor_rate', 0)),
+                non_labor_cost=float(request.form.get('non_labor', 0)),
+                scope_delta=scope_delta,
+                period_id=period_id
+            )
+            idx = next(i for i, p in enumerate(project['periods']) if p.get('period_id') == period_id)
+            project['periods'][idx] = updated.to_dict()
 
-        save_project_for_request(project_id, project)
-        return redirect(url_for('dashboard', project_id=project_id))
+            save_project_for_request(project_id, project)
+            return redirect(url_for('dashboard', project_id=project_id))
 
     # Compute context for scope governance section
     baseline_scope = project.get('baseline_scope', 0.0)
@@ -271,7 +335,8 @@ def edit_period(project_id, period_id):
         period=period_data,
         baseline_scope=baseline_scope,
         prior_growth=prior_growth,
-        period_scope_delta=period_scope_delta
+        period_scope_delta=period_scope_delta,
+        errors=errors
     )
 
 
@@ -311,18 +376,21 @@ def project_settings(project_id):
     if not project:
         abort(404)
 
+    errors = []
     if request.method == 'POST':
-        cv_raw = request.form.get('contract_value', '').strip()
-        project['name']           = request.form['name']
-        project['description']    = request.form.get('description', '')
-        project['contract_value'] = float(cv_raw) if cv_raw else None
-        project['bac']            = float(request.form['bac'])
-        project['start_date']     = request.form['start_date']
-        project['end_date']       = request.form['end_date']
-        save_project_for_request(project_id, project)
-        return redirect(url_for('project_settings', project_id=project_id))
+        errors = _validate_project_form(request.form)
+        if not errors:
+            cv_raw = request.form.get('contract_value', '').strip()
+            project['name']           = request.form['name'].strip()
+            project['description']    = request.form.get('description', '').strip()
+            project['contract_value'] = float(cv_raw) if cv_raw else None
+            project['bac']            = float(request.form['bac'])
+            project['start_date']     = request.form['start_date']
+            project['end_date']       = request.form['end_date']
+            save_project_for_request(project_id, project)
+            return redirect(url_for('project_settings', project_id=project_id))
 
-    return render_template('settings.html', project=project)
+    return render_template('settings.html', project=project, errors=errors)
 
 
 @app.route('/project/<project_id>/delete', methods=['POST'])
@@ -333,6 +401,11 @@ def delete_project(project_id):
     if project.get('is_demo') or project.get('is_sample'):
         abort(403)
     utils.delete_project(project_id)
+    # Cascade-delete all SQLite work-structure records for this project
+    Epic.query.filter_by(project_id=project_id).delete()
+    Discipline.query.filter_by(project_id=project_id).delete()
+    Iteration.query.filter_by(project_id=project_id).delete()
+    db.session.commit()
     return redirect(url_for('index'))
 
 
@@ -377,7 +450,11 @@ def project_chat(project_id):
         "end_date":       project.get("end_date"),
         "baseline_scope": project.get("baseline_scope"),
         "metrics":        metrics,
-        "periods":        periods,
+        # Strip labor_rate from period rows — aggregate cost is sufficient for AI analysis
+        "periods": [
+            {k: v for k, v in p.items() if k != 'labor_rate'}
+            for p in periods
+        ],
         "period_details": details,
     }
 

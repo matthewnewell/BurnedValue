@@ -47,9 +47,11 @@
 
 <script>
 (function() {
-  // ── Context (set by each page before this script runs) ────────────────────
-  const ENDPOINT     = window.CHAT_ENDPOINT     || null;
-  const STORAGE_KEY  = window.CHAT_STORAGE_KEY  || 'ai-default';
+  // ── Context (read fresh on each send so SPA navigation picks up new endpoints) ─
+  // ENDPOINT/STORAGE_KEY/etc. are intentionally NOT captured at init time —
+  // window.CHAT_* is re-set by each page's scripts after SPA navigation.
+  function currentEndpoint()    { return window.CHAT_ENDPOINT     || null; }
+  function currentStorageKey()  { return window.CHAT_STORAGE_KEY  || 'ai-default'; }
   const WELCOME_HTML = window.CHAT_WELCOME_HTML || '';
   const PLACEHOLDER  = window.CHAT_PLACEHOLDER  || 'Ask\u2026';
 
@@ -66,7 +68,7 @@
   const mainContent = document.querySelector('.content');
 
   // No endpoint on this page — leave toggle hidden
-  if (!ENDPOINT) return;
+  if (!currentEndpoint()) return;
 
   toggleBtn.style.display = '';
   welcomeBubble.innerHTML = WELCOME_HTML;
@@ -90,8 +92,8 @@
 
   // ── History (per context key) ─────────────────────────────────────────────
   let history = [];
-  try { const raw = sessionStorage.getItem(STORAGE_KEY); if (raw) history = JSON.parse(raw) || []; } catch(e) {}
-  function saveHistory() { try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch(e) {} }
+  try { const raw = sessionStorage.getItem(currentStorageKey()); if (raw) history = JSON.parse(raw) || []; } catch(e) {}
+  function saveHistory() { try { sessionStorage.setItem(currentStorageKey(), JSON.stringify(history)); } catch(e) {} }
 
   // ── Bubbles ───────────────────────────────────────────────────────────────
   function addBubble(role, content, isThinking) {
@@ -172,7 +174,7 @@
     const thinkingBubble = addBubble('ai', '', true);
     messagesEl.scrollTop = anchor;
 
-    fetch(ENDPOINT, {
+    fetch(currentEndpoint(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: history, tone: toneSelect.value })
@@ -238,6 +240,12 @@
         else window.scrollTo(0, 0);
 
         if (open && mainContent) mainContent.style.marginRight = pane.offsetWidth + 'px';
+
+        // Reload chat history for the new page context
+        history = [];
+        try { const raw = sessionStorage.getItem(currentStorageKey()); if (raw) history = JSON.parse(raw) || []; } catch(e) {}
+        // Show/hide toggle based on whether new page has a chat endpoint
+        toggleBtn.style.display = currentEndpoint() ? '' : 'none';
 
         requestAnimationFrame(() => { requestAnimationFrame(() => {
           pane.style.transition = '';

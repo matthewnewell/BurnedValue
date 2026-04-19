@@ -10,7 +10,7 @@ See docs/DATA_MODEL.md for entity definitions and EV flow.
 import os
 import uuid
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event
@@ -116,7 +116,7 @@ class DisciplineActual(db.Model):
                                        db.ForeignKey('discipline.id', ondelete='CASCADE'),
                                        nullable=False)
     actual_dollars_charged = db.Column(db.Float, nullable=False, default=0.0)
-    entered_at             = db.Column(db.DateTime, default=datetime.utcnow)
+    entered_at             = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     notes                  = db.Column(db.Text, nullable=True)
 
     iteration  = db.relationship('Iteration',  back_populates='actuals')
@@ -230,7 +230,7 @@ class Story(db.Model):
     blocked             = db.Column(db.Boolean,      default=False)
     blocked_reason      = db.Column(db.Text,         nullable=True)
     order               = db.Column(db.Integer,      default=0)
-    created_at          = db.Column(db.DateTime,     default=datetime.utcnow)
+    created_at          = db.Column(db.DateTime,     default=lambda: datetime.now(timezone.utc))
     completed_at        = db.Column(db.DateTime,     nullable=True)
 
     feature   = db.relationship('Feature',   back_populates='stories')
